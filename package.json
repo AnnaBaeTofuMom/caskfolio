@@ -1,0 +1,19 @@
+{
+  "name": "caskfolio",
+  "private": true,
+  "version": "0.1.0",
+  "packageManager": "pnpm@9.0.0",
+  "scripts": {
+    "dev": "turbo dev",
+    "build": "turbo build",
+    "test": "turbo test",
+    "lint": "turbo lint",
+    "typecheck": "turbo typecheck",
+    "db:generate": "pnpm --filter @caskfolio/db prisma generate",
+    "db:migrate": "pnpm --filter @caskfolio/db prisma migrate dev",
+    "db:seed": "pnpm --filter @caskfolio/db prisma db seed"
+  },
+  "devDependencies": {
+    "turbo": "^2.4.1"
+  }
+}

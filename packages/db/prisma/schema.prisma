@@ -1,0 +1,185 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  USER
+  ADMIN
+}
+
+enum BottleCondition {
+  SEALED
+  OPEN
+}
+
+enum StorageLocation {
+  HOME
+  BAR
+  VAULT
+}
+
+enum Visibility {
+  PRIVATE
+  PUBLIC
+}
+
+enum PriceMethod {
+  WEIGHTED_MEDIAN
+  EXTERNAL_MEDIAN
+  INTERNAL_MEDIAN
+  HIDDEN
+}
+
+model User {
+  id             String        @id @default(uuid())
+  email          String        @unique
+  phone          String?
+  name           String
+  username       String        @unique
+  profileImage   String?
+  passwordHash   String?
+  provider       String?
+  providerSub    String?
+  createdAt      DateTime      @default(now())
+  role           Role          @default(USER)
+  assets         WhiskyAsset[]
+  followers      Follow[]      @relation("followers")
+  following      Follow[]      @relation("following")
+  outgoingTrades OwnershipHistory[] @relation("previousOwner")
+  incomingTrades OwnershipHistory[] @relation("newOwner")
+}
+
+model Brand {
+  id       String    @id @default(uuid())
+  name     String    @unique
+  products Product[]
+}
+
+model Product {
+  id       String    @id @default(uuid())
+  brandId  String
+  name     String
+  brand    Brand     @relation(fields: [brandId], references: [id], onDelete: Cascade)
+  variants Variant[]
+
+  @@unique([brandId, name])
+}
+
+model Variant {
+  id               String             @id @default(uuid())
+  productId        String
+  releaseYear      Int?
+  bottleSize       Int?
+  region           String?
+  specialTag       String?
+  assets           WhiskyAsset[]
+  marketSnapshots  MarketPriceSnapshot[]
+  priceAggregate   PriceAggregate?
+  internalSnapshots InternalPriceSnapshot[]
+  product          Product            @relation(fields: [productId], references: [id], onDelete: Cascade)
+  barcodeMappings  BarcodeMapping[]
+}
+
+model WhiskyAsset {
+  id                String           @id @default(uuid())
+  userId            String
+  variantId         String?
+  customProductName String?
+  purchasePrice     Decimal          @db.Decimal(12, 2)
+  purchaseDate      DateTime
+  bottleCondition   BottleCondition
+  boxAvailable      Boolean          @default(false)
+  labelCondition    String?
+  storageLocation   StorageLocation
+  photoUrl          String?
+  caption           String?
+  visibility        Visibility       @default(PRIVATE)
+  createdAt         DateTime         @default(now())
+  owner             User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  variant           Variant?         @relation(fields: [variantId], references: [id], onDelete: SetNull)
+  ownershipHistory  OwnershipHistory[]
+  feedScore         FeedScore?
+
+  @@index([userId, createdAt])
+  @@index([variantId])
+  @@index([visibility])
+}
+
+model OwnershipHistory {
+  id              String   @id @default(uuid())
+  assetId          String
+  previousOwnerId  String
+  newOwnerId       String
+  transferDate     DateTime
+  asset            WhiskyAsset @relation(fields: [assetId], references: [id], onDelete: Cascade)
+  previousOwner    User    @relation("previousOwner", fields: [previousOwnerId], references: [id])
+  newOwner         User    @relation("newOwner", fields: [newOwnerId], references: [id])
+}
+
+model Follow {
+  id          String   @id @default(uuid())
+  followerId  String
+  followingId String
+  createdAt   DateTime @default(now())
+  follower    User     @relation("following", fields: [followerId], references: [id], onDelete: Cascade)
+  following   User     @relation("followers", fields: [followingId], references: [id], onDelete: Cascade)
+
+  @@unique([followerId, followingId])
+  @@index([followingId])
+}
+
+model FeedScore {
+  id           String      @id @default(uuid())
+  assetId       String      @unique
+  score         Float
+  reasonTag     String
+  calculatedAt  DateTime    @default(now())
+  asset         WhiskyAsset @relation(fields: [assetId], references: [id], onDelete: Cascade)
+}
+
+model PriceAggregate {
+  id                 String      @id @default(uuid())
+  variantId           String      @unique
+  trustedPrice        Decimal?    @db.Decimal(12, 2)
+  method              PriceMethod @default(HIDDEN)
+  sampleSizeInternal  Int         @default(0)
+  sampleSizeExternal  Int         @default(0)
+  confidence          Float       @default(0)
+  updatedAt           DateTime    @updatedAt
+  variant             Variant     @relation(fields: [variantId], references: [id], onDelete: Cascade)
+}
+
+model InternalPriceSnapshot {
+  id            String   @id @default(uuid())
+  variantId      String
+  medianPrice    Decimal  @db.Decimal(12, 2)
+  sampleSize     Int
+  capturedDate   DateTime
+  variant        Variant  @relation(fields: [variantId], references: [id], onDelete: Cascade)
+
+  @@index([variantId, capturedDate])
+}
+
+model MarketPriceSnapshot {
+  id           String   @id @default(uuid())
+  variantId     String
+  lowestPrice   Decimal  @db.Decimal(12, 2)
+  highestPrice  Decimal  @db.Decimal(12, 2)
+  source        String
+  sourceUrl     String?
+  crawledAt     DateTime @default(now())
+  variant       Variant   @relation(fields: [variantId], references: [id], onDelete: Cascade)
+
+  @@index([variantId, crawledAt])
+}
+
+model BarcodeMapping {
+  barcode   String  @id
+  variantId String
+  variant   Variant @relation(fields: [variantId], references: [id], onDelete: Cascade)
+}
