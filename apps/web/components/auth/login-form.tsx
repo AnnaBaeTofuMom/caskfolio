@@ -83,31 +83,6 @@ export function LoginForm() {
     }
   }
 
-  async function startOauth(provider: 'google' | 'apple') {
-    setStatus(`Redirecting to ${provider}...`);
-    try {
-      const redirectUri = `${window.location.origin}/auth/login`;
-      const response = await fetch(`${API_BASE}/auth/${provider}?redirectUri=${encodeURIComponent(redirectUri)}`);
-      if (!response.ok) {
-        setStatus(`${provider} oauth start failed`);
-        return;
-      }
-      const data = (await response.json()) as { url?: string; redirect?: string };
-      const oauthUrl = data.url ?? data.redirect;
-      if (!oauthUrl) {
-        setStatus(`${provider} oauth url missing`);
-        return;
-      }
-      if (!oauthUrl.startsWith('http://') && !oauthUrl.startsWith('https://') && !oauthUrl.startsWith('/')) {
-        setStatus(`${provider} oauth start failed`);
-        return;
-      }
-      window.location.href = oauthUrl.startsWith('/') ? `${window.location.origin}${oauthUrl}` : oauthUrl;
-    } catch {
-      setStatus(`${provider} oauth start failed`);
-    }
-  }
-
   return (
     <div className="login-wrap">
       <header className="login-head">
@@ -148,7 +123,7 @@ export function LoginForm() {
 
         <div className="or-row">or continue with</div>
 
-        <button className="btn ghost google-auth-btn" type="button" onClick={() => void startOauth('google')}>
+        <a className="btn ghost google-auth-btn" href={`${API_BASE}/auth/google?direct=1`}>
           <span className="google-auth-icon" aria-hidden="true">
             <svg viewBox="0 0 24 24" width="18" height="18" role="img">
               <path
@@ -170,7 +145,7 @@ export function LoginForm() {
             </svg>
           </span>
           Continue with Google
-        </button>
+        </a>
         {/* Apple login is temporarily hidden */}
 
         {/* Phone verification is temporarily hidden */}

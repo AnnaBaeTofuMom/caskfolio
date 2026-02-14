@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Post, Query, UseGuards } from '@nestjs/common';
+import { Body, Controller, Get, Post, Query, Res, UseGuards } from '@nestjs/common';
 import { AuthService } from './auth.service.js';
 import { OauthService } from './oauth.service.js';
 import { RateLimit } from '../../security/rate-limit.decorator.js';
@@ -19,8 +19,14 @@ export class AuthController {
   ) {}
 
   @Get('google')
-  googleAuthStart(@Query('redirectUri') redirectUri?: string) {
-    return { provider: 'google', url: this.oauthService.buildGoogleAuthUrl(redirectUri) };
+  googleAuthStart(@Query('redirectUri') redirectUri: string | undefined, @Query('direct') direct: string | undefined, @Res({ passthrough: true }) res: { redirect: (url: string) => void }) {
+    const defaultLoginRedirect = `${process.env.WEB_ORIGIN ?? 'http://localhost:3000'}/auth/login`;
+    const url = this.oauthService.buildGoogleAuthUrl(redirectUri ?? defaultLoginRedirect);
+    if (direct === '1') {
+      res.redirect(url);
+      return;
+    }
+    return { provider: 'google', url };
   }
 
   @Get('google/callback')
