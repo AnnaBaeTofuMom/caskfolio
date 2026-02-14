@@ -4,7 +4,7 @@ import { FormEvent, useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { AUTH_STATE_CHANGED_EVENT, readAuthContext } from '../../lib/auth-state';
 
-const API_BASE = process.env.NEXT_PUBLIC_API_BASE_URL ?? '/api-proxy';
+const API_BASE = process.env.NEXT_PUBLIC_API_BASE_URL ?? '/api';
 
 export function LoginForm() {
   const router = useRouter();

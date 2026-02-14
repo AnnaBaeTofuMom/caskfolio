@@ -9,7 +9,7 @@ type Brand = { id: string; name: string };
 type Product = { id: string; name: string; brandId: string };
 type Variant = { id: string; releaseYear: number | null; bottleSize: number | null; region: string | null; specialTag: string | null };
 
-const API_BASE = process.env.NEXT_PUBLIC_API_BASE_URL ?? '/api-proxy';
+const API_BASE = process.env.NEXT_PUBLIC_API_BASE_URL ?? '/api';
 
 export function AssetForm() {
   const router = useRouter();

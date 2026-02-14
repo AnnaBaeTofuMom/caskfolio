@@ -6,7 +6,7 @@ import { ChangeEvent, FormEvent, useEffect, useMemo, useState } from 'react';
 import { readAuthContext } from '../lib/auth-state';
 import { optimizeImageFile } from '../lib/image-optimize';
 
-const API_BASE = process.env.NEXT_PUBLIC_API_BASE_URL ?? '/api-proxy';
+const API_BASE = process.env.NEXT_PUBLIC_API_BASE_URL ?? '/api';
 
 type MyAsset = {
   id: string;

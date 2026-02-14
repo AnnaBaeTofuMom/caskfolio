@@ -1,7 +1,7 @@
 const API_BASE =
   typeof window === 'undefined'
     ? (process.env.API_INTERNAL_BASE_URL ?? 'http://localhost:4000/api')
-    : (process.env.NEXT_PUBLIC_API_BASE_URL ?? '/api-proxy');
+    : (process.env.NEXT_PUBLIC_API_BASE_URL ?? '/api');
 
 export async function safeFetch<T>(path: string, init?: RequestInit): Promise<T | null> {
   try {

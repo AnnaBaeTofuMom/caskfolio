@@ -7,7 +7,7 @@ import { FeedCard } from '@caskfolio/types';
 import { FeedCardItem } from '../../components/feed-card';
 import { readAuthContext } from '../../lib/auth-state';
 
-const API_BASE = process.env.NEXT_PUBLIC_API_BASE_URL ?? '/api-proxy';
+const API_BASE = process.env.NEXT_PUBLIC_API_BASE_URL ?? '/api';
 
 export default function FeedPage() {
   const [loading, setLoading] = useState(true);

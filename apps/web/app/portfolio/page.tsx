@@ -6,7 +6,7 @@ import { useEffect, useState } from 'react';
 import { AUTH_STATE_CHANGED_EVENT, clearAuthState, readAuthContext } from '../../lib/auth-state';
 import { MyAssetsPanel } from '../../components/assets/my-assets-panel';
 
-const API_BASE = process.env.NEXT_PUBLIC_API_BASE_URL ?? '/api-proxy';
+const API_BASE = process.env.NEXT_PUBLIC_API_BASE_URL ?? '/api';
 
 type Summary = {
   totalEstimatedValue: number;
