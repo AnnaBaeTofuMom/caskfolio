@@ -1,7 +1,10 @@
 import { FeedCardItem } from '../../components/feed-card';
 import { FeedCard } from '@caskfolio/types';
+import { safeFetch } from '../../lib/api';
 
-const items: FeedCard[] = [
+export const dynamic = 'force-dynamic';
+
+const fallbackItems: FeedCard[] = [
   {
     assetId: 'asset-1',
     owner: { username: 'maltlover', name: 'Malt Lover' },
@@ -11,19 +14,15 @@ const items: FeedCard[] = [
     priceMethod: 'WEIGHTED_MEDIAN',
     confidence: 0.82,
     createdAt: '2026-02-12T02:00:00.000Z'
-  },
-  {
-    assetId: 'asset-2',
-    owner: { username: 'peatmode', name: 'Peat Mode' },
-    title: 'Ardbeg 25',
-    trustedPrice: 1120000,
-    priceMethod: 'EXTERNAL_MEDIAN',
-    confidence: 0.75,
-    createdAt: '2026-02-11T09:30:00.000Z'
   }
 ];
 
-export default function FeedPage() {
+export default async function FeedPage() {
+  const data = await safeFetch<{ items: FeedCard[] }>('/social/feed', {
+    headers: { 'x-user-email': 'demo@caskfolio.com' }
+  });
+  const items = data?.items?.length ? data.items : fallbackItems;
+
   return (
     <section>
       <h1>Community Feed</h1>

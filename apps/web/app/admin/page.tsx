@@ -1,16 +1,33 @@
-const metrics = [
-  ['Total Users', '1,520'],
-  ['Active Users', '684'],
-  ['Total Registered Assets', '5,830'],
-  ['Total AUM', '4,120,000,000 KRW']
-];
+import { safeFetch } from '../../lib/api';
 
-export default function AdminPage() {
+export const dynamic = 'force-dynamic';
+
+export default async function AdminPage() {
+  const metrics =
+    (await safeFetch<{
+      totalUsers: number;
+      activeUsers: number;
+      totalRegisteredAssets: number;
+      totalAum: number;
+    }>('/admin/metrics')) ?? {
+      totalUsers: 0,
+      activeUsers: 0,
+      totalRegisteredAssets: 0,
+      totalAum: 0
+    };
+
+  const cards = [
+    ['Total Users', metrics.totalUsers.toLocaleString()],
+    ['Active Users', metrics.activeUsers.toLocaleString()],
+    ['Total Registered Assets', metrics.totalRegisteredAssets.toLocaleString()],
+    ['Total AUM', `${metrics.totalAum.toLocaleString()} KRW`]
+  ];
+
   return (
     <section>
       <h1>Admin Dashboard</h1>
       <div className="metrics">
-        {metrics.map(([label, value]) => (
+        {cards.map(([label, value]) => (
           <article key={label} className="card metric">
             <p>{label}</p>
             <strong>{value}</strong>
