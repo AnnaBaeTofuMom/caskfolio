@@ -73,6 +73,41 @@ export class AdminService {
     });
   }
 
+  customProducts(status: 'PENDING' | 'APPROVED' | 'REJECTED' = 'PENDING') {
+    return this.prisma.customProductSubmission.findMany({
+      where: { status },
+      orderBy: { createdAt: 'desc' },
+      take: 200
+    });
+  }
+
+  async approveCustomProduct(submissionId: string, reviewer = 'admin@caskfolio.com', variantId?: string) {
+    const submission = await this.prisma.customProductSubmission.update({
+      where: { id: submissionId },
+      data: {
+        status: 'APPROVED',
+        reviewedBy: reviewer,
+        reviewedAt: new Date(),
+        variantId: variantId ?? undefined
+      }
+    });
+
+    if (variantId) {
+      await this.prisma.whiskyAsset.updateMany({
+        where: {
+          userId: submission.userId,
+          customProductName: submission.customProductName,
+          variantId: null
+        },
+        data: {
+          variantId
+        }
+      });
+    }
+
+    return { approved: true, submissionId, variantId: variantId ?? null };
+  }
+
   exportData() {
     return { status: 'queued', format: 'csv' };
   }

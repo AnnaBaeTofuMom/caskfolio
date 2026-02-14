@@ -32,4 +32,25 @@ describe('AdminService', () => {
     expect(result.totalAum).toBe(600);
     expect(result.topVariantsByAum[0].aum).toBe(300);
   });
+
+  it('approves custom submission and links assets when variant is provided', async () => {
+    const prisma: any = {
+      customProductSubmission: {
+        update: vi.fn().mockResolvedValue({
+          id: 's1',
+          userId: 'u1',
+          customProductName: 'Unknown Bottle'
+        })
+      },
+      whiskyAsset: {
+        updateMany: vi.fn().mockResolvedValue({ count: 2 })
+      }
+    };
+
+    const service = new AdminService(prisma);
+    const result = await service.approveCustomProduct('s1', 'admin@caskfolio.com', 'v1');
+
+    expect(result.approved).toBe(true);
+    expect(prisma.whiskyAsset.updateMany).toHaveBeenCalledTimes(1);
+  });
 });

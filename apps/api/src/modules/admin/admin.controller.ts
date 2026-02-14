@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Post } from '@nestjs/common';
+import { Body, Controller, Get, Param, Patch, Post, Query } from '@nestjs/common';
 import { AdminService } from './admin.service.js';
 
 @Controller('admin')
@@ -13,6 +13,11 @@ export class AdminController {
   @Get('users')
   users() {
     return this.adminService.users();
+  }
+
+  @Get('custom-products')
+  customProducts(@Query('status') status?: 'PENDING' | 'APPROVED' | 'REJECTED') {
+    return this.adminService.customProducts(status ?? 'PENDING');
   }
 
   @Post('catalog/brands')
@@ -30,6 +35,14 @@ export class AdminController {
     @Body() body: { productId: string; releaseYear?: number; bottleSize?: number; region?: string; specialTag?: string }
   ) {
     return this.adminService.createVariant(body);
+  }
+
+  @Patch('custom-products/:submissionId/approve')
+  approveCustomProduct(
+    @Param('submissionId') submissionId: string,
+    @Body() body: { reviewer?: string; variantId?: string }
+  ) {
+    return this.adminService.approveCustomProduct(submissionId, body.reviewer, body.variantId);
   }
 
   @Get('export')

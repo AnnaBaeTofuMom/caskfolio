@@ -35,6 +35,12 @@ enum PriceMethod {
   HIDDEN
 }
 
+enum SubmissionStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
 model User {
   id             String        @id @default(uuid())
   email          String        @unique
@@ -55,6 +61,7 @@ model User {
   passwordResetTokens PasswordResetToken[]
   portfolioShares PortfolioShare[]
   authSessions AuthSession[]
+  customProductSubmissions CustomProductSubmission[]
 
   @@index([provider, providerSub])
 }
@@ -88,6 +95,7 @@ model Variant {
   internalSnapshots InternalPriceSnapshot[]
   product          Product            @relation(fields: [productId], references: [id], onDelete: Cascade)
   barcodeMappings  BarcodeMapping[]
+  customSubmissions CustomProductSubmission[]
 }
 
 model WhiskyAsset {
@@ -222,4 +230,20 @@ model AuthSession {
   user             User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId, expiresAt])
+}
+
+model CustomProductSubmission {
+  id                String           @id @default(uuid())
+  userId            String
+  customProductName String
+  status            SubmissionStatus @default(PENDING)
+  reviewedBy        String?
+  reviewedAt        DateTime?
+  reviewNote        String?
+  variantId         String?
+  createdAt         DateTime         @default(now())
+  user              User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  variant           Variant?         @relation(fields: [variantId], references: [id], onDelete: SetNull)
+
+  @@index([status, createdAt])
 }

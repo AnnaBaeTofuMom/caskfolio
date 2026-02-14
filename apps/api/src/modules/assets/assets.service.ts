@@ -43,7 +43,7 @@ export class AssetsService {
     const user = await this.ensureUser(userEmail);
     const normalized = this.normalizeCreateInput(input);
 
-    return this.prisma.whiskyAsset.create({
+    const created = await this.prisma.whiskyAsset.create({
       data: {
         userId: user.id,
         variantId: normalized.variantId,
@@ -59,6 +59,17 @@ export class AssetsService {
         visibility: normalized.visibility
       }
     });
+
+    if (!normalized.variantId && normalized.customProductName) {
+      await this.prisma.customProductSubmission.create({
+        data: {
+          userId: user.id,
+          customProductName: normalized.customProductName
+        }
+      });
+    }
+
+    return created;
   }
 
   async updateAsset(userEmail: string, assetId: string, input: Partial<CreateAssetInput>) {
