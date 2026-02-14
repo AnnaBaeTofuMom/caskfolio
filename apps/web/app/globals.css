@@ -161,6 +161,40 @@ h1 {
   max-width: 520px;
 }
 
+.assets-panel {
+  min-height: 320px;
+}
+
+.assets-panel-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.8rem;
+  margin-bottom: 0.8rem;
+}
+
+.asset-list {
+  display: grid;
+  gap: 0.6rem;
+}
+
+.asset-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.8rem;
+  padding: 0.7rem;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: #fff;
+}
+
+.asset-row p {
+  margin: 0.2rem 0 0;
+  color: var(--muted);
+  font-size: 0.92rem;
+}
+
 input {
   width: 100%;
   margin-top: 0.4rem;
