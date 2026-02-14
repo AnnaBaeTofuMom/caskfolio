@@ -1,5 +1,8 @@
-import { Body, Controller, Get, Post, Query } from '@nestjs/common';
+import { Body, Controller, Get, Post, Query, UseGuards } from '@nestjs/common';
 import { AuthService } from './auth.service.js';
+import { OauthService } from './oauth.service.js';
+import { RateLimit } from '../../security/rate-limit.decorator.js';
+import { RateLimitGuard } from '../../security/rate-limit.guard.js';
 
 class SignupDto {
   email!: string;
@@ -8,8 +11,12 @@ class SignupDto {
 }
 
 @Controller('auth')
+@UseGuards(RateLimitGuard)
 export class AuthController {
-  constructor(private readonly authService: AuthService) {}
+  constructor(
+    private readonly authService: AuthService,
+    private readonly oauthService: OauthService
+  ) {}
 
   @Get('google')
   googleAuthStart() {
@@ -17,12 +24,17 @@ export class AuthController {
   }
 
   @Get('google/callback')
-  googleAuthCallback(@Query('sub') sub?: string, @Query('email') email?: string, @Query('name') name?: string) {
+  @RateLimit(20, 60_000)
+  async googleAuthCallback(@Query('idToken') idToken?: string) {
+    if (!idToken) {
+      return { error: 'idToken is required' };
+    }
+    const profile = await this.oauthService.verifyGoogleIdToken(idToken);
     return this.authService.oauthLogin({
       provider: 'google',
-      providerSub: sub ?? 'google-dev-sub',
-      email: email ?? 'google-user@caskfolio.com',
-      name: name ?? 'Google User'
+      providerSub: profile.providerSub,
+      email: profile.email,
+      name: profile.name
     });
   }
 
@@ -32,36 +44,46 @@ export class AuthController {
   }
 
   @Get('apple/callback')
-  appleAuthCallback(@Query('sub') sub?: string, @Query('email') email?: string, @Query('name') name?: string) {
+  @RateLimit(20, 60_000)
+  appleAuthCallback(@Query('idToken') idToken?: string) {
+    if (!idToken) {
+      return { error: 'idToken is required' };
+    }
+    const profile = this.oauthService.verifyAppleIdToken(idToken);
     return this.authService.oauthLogin({
       provider: 'apple',
-      providerSub: sub ?? 'apple-dev-sub',
-      email: email ?? 'apple-user@caskfolio.com',
-      name: name ?? 'Apple User'
+      providerSub: profile.providerSub,
+      email: profile.email,
+      name: profile.name
     });
   }
 
   @Post('signup')
+  @RateLimit(10, 60_000)
   signup(@Body() body: SignupDto) {
     return this.authService.signup(body.email, body.password, body.name);
   }
 
   @Post('login')
+  @RateLimit(10, 60_000)
   login(@Body() body: { email: string; password: string }) {
     return this.authService.login(body.email, body.password);
   }
 
   @Post('refresh')
+  @RateLimit(30, 60_000)
   refresh(@Body() body: { refreshToken: string }) {
     return this.authService.refresh(body.refreshToken);
   }
 
   @Post('logout')
+  @RateLimit(30, 60_000)
   logout(@Body() body: { refreshToken: string }) {
     return this.authService.logout(body.refreshToken);
   }
 
   @Post('password-reset/request')
+  @RateLimit(5, 60_000)
   passwordResetRequest(@Body() body: { email: string }) {
     return this.authService.passwordResetRequest(body.email);
   }
