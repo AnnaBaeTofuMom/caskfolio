@@ -60,19 +60,19 @@ export class PriceAggregateService {
       this.prisma.whiskyAsset.count({ where: { variantId } })
     ]);
 
-    const internal = internalRows.map((row) => Number(row.purchasePrice));
-    const external = marketRows.flatMap((row) => [
+    const internal = internalRows.map((row: (typeof internalRows)[number]) => Number(row.purchasePrice));
+    const external = marketRows.flatMap((row: (typeof marketRows)[number]) => [
       Number(row.lowestPrice),
       Number(row.highestPrice)
     ]);
 
     const trusted = this.calculateTrustedPrice(
-      internal.map((price) => ({ price, weight: 1 })),
-      external.map((price) => ({ price, weight: 2 }))
+      internal.map((price: number) => ({ price, weight: 1 })),
+      external.map((price: number) => ({ price, weight: 2 }))
     );
 
     const platformAverage = internal.length
-      ? Math.round((internal.reduce((sum, p) => sum + p, 0) / internal.length) * 100) / 100
+      ? Math.round((internal.reduce((sum: number, p: number) => sum + p, 0) / internal.length) * 100) / 100
       : null;
 
     return {
@@ -94,7 +94,7 @@ export class PriceAggregateService {
       orderBy: { crawledAt: 'asc' }
     });
 
-    return snapshots.map((snapshot) => ({
+    return snapshots.map((snapshot: (typeof snapshots)[number]) => ({
       date: snapshot.crawledAt.toISOString().slice(0, 10),
       low: Number(snapshot.lowestPrice),
       high: Number(snapshot.highestPrice)

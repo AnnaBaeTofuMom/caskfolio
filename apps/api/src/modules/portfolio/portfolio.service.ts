@@ -71,7 +71,7 @@ export class PortfolioService {
             select: { id: true },
             take: 30
           })
-        ).map((asset) => asset.id);
+        ).map((asset: { id: string }) => asset.id);
 
     await this.prisma.portfolioShare.create({
       data: {
@@ -112,7 +112,7 @@ export class PortfolioService {
       found: true,
       slug: share.slug,
       owner: { username: share.user.username, name: share.user.name },
-      assets: assets.map((asset) => ({
+      assets: assets.map((asset: (typeof assets)[number]) => ({
         id: asset.id,
         name:
           asset.customProductName ??

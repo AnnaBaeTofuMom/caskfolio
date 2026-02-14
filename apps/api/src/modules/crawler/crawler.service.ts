@@ -15,48 +15,54 @@ export class CrawlerService {
   ) {}
 
   @Cron(CronExpression.EVERY_DAY_AT_9AM, { timeZone: 'Asia/Seoul' })
-  async crawlDailyTop100() {
+  async crawlDailyTop100(manualVariantIds?: string[]) {
     this.logger.log('Running daily crawl for top 100 variants at 09:00 KST');
 
-    const topVariants = await this.prisma.whiskyAsset.groupBy({
-      by: ['variantId'],
-      where: { variantId: { not: null } },
-      _count: { variantId: true },
-      orderBy: { _count: { variantId: 'desc' } },
-      take: 100
-    });
+    const targetVariantIds = await this.resolveTargetVariantIds(manualVariantIds);
 
     let processed = 0;
 
-    for (const row of topVariants) {
-      if (!row.variantId) continue;
+    for (const variantId of targetVariantIds) {
+      if (!variantId) continue;
 
       const assets = await this.prisma.whiskyAsset.findMany({
-        where: { variantId: row.variantId },
+        where: { variantId },
         select: { purchasePrice: true, purchaseDate: true }
       });
 
       if (!assets.length) continue;
 
       const sorted = assets
-        .map((a) => Number(a.purchasePrice))
-        .filter((v) => Number.isFinite(v) && v > 0)
-        .sort((a, b) => a - b);
+        .map((a: (typeof assets)[number]) => Number(a.purchasePrice))
+        .filter((v: number) => Number.isFinite(v) && v > 0)
+        .sort((a: number, b: number) => a - b);
 
       if (!sorted.length) continue;
 
-      const externalRange = await this.fetchExternalRange(row.variantId);
+      const variant = await this.prisma.variant.findUnique({
+        where: { id: variantId },
+        include: { product: { include: { brand: true } } }
+      });
+
+      const query =
+        variant && variant.product
+          ? [variant.product.brand.name, variant.product.name, variant.specialTag, variant.releaseYear ? String(variant.releaseYear) : null]
+              .filter(Boolean)
+              .join(' ')
+          : variantId;
+
+      const externalRange = await this.fetchExternalRange(variantId, query);
       const mid = sorted[Math.floor(sorted.length / 2)];
       const simulatedLow = Math.round(mid * 0.95);
       const simulatedHigh = Math.round(mid * 1.12);
       const lowestPrice = externalRange?.lowestPrice ?? simulatedLow;
       const highestPrice = externalRange?.highestPrice ?? simulatedHigh;
-      const source = externalRange?.source ?? 'simulated-google-shopping';
+      const source = externalRange?.source ?? 'simulated-fallback';
       const sourceUrl = externalRange?.sourceUrl ?? null;
 
       await this.prisma.marketPriceSnapshot.create({
         data: {
-          variantId: row.variantId,
+          variantId,
           lowestPrice,
           highestPrice,
           source,
@@ -66,7 +72,7 @@ export class CrawlerService {
       });
 
       const trusted = this.priceAggregateService.calculateTrustedPrice(
-        sorted.map((price) => ({ price, weight: 1 })),
+        sorted.map((price: number) => ({ price, weight: 1 })),
         [
           { price: lowestPrice, weight: 2 },
           { price: highestPrice, weight: 2 }
@@ -74,9 +80,9 @@ export class CrawlerService {
       );
 
       await this.prisma.priceAggregate.upsert({
-        where: { variantId: row.variantId },
+        where: { variantId },
         create: {
-          variantId: row.variantId,
+          variantId,
           trustedPrice: trusted.trustedPrice,
           method: trusted.method,
           sampleSizeInternal: sorted.length,
@@ -93,12 +99,13 @@ export class CrawlerService {
       });
 
       processed += 1;
+      await this.sleep(350);
     }
 
     return {
       crawledAt: new Date().toISOString(),
       nextCrawlAt: this.nextCrawlAt(),
-      source: process.env.MARKET_PRICE_SOURCE_URL_TEMPLATE ? 'external+simulated-fallback' : 'simulated-google-shopping',
+      source: 'google-shopping-live+fallback',
       items: processed
     };
   }
@@ -120,8 +127,12 @@ export class CrawlerService {
   }
 
   private async fetchExternalRange(
-    variantId: string
+    variantId: string,
+    query: string
   ): Promise<{ lowestPrice: number; highestPrice: number; source: string; sourceUrl?: string } | null> {
+    const live = await this.fetchGoogleShoppingRange(query);
+    if (live) return live;
+
     const template = process.env.MARKET_PRICE_SOURCE_URL_TEMPLATE;
     if (!template || !template.includes('{variantId}')) return null;
 
@@ -147,6 +158,87 @@ export class CrawlerService {
     } catch {
       return null;
     }
+  }
+
+  private async fetchGoogleShoppingRange(
+    query: string
+  ): Promise<{ lowestPrice: number; highestPrice: number; source: string; sourceUrl?: string } | null> {
+    const playwright = await this.loadPlaywright();
+    if (!playwright?.chromium) return null;
+
+    const sourceUrl = `https://www.google.com/search?tbm=shop&q=${encodeURIComponent(query)}`;
+    let browser: any | null = null;
+    try {
+      browser = await playwright.chromium.launch({ headless: true });
+      const context = await browser.newContext({
+        userAgent:
+          'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36',
+        locale: 'en-US'
+      });
+      const page = await context.newPage();
+      await page.goto(sourceUrl, { waitUntil: 'domcontentloaded', timeout: 30000 });
+      await page.waitForTimeout(1200);
+      const text = await page.locator('body').innerText();
+      const prices = this.extractPrices(text);
+      if (!prices.length) return null;
+
+      return {
+        lowestPrice: Math.min(...prices),
+        highestPrice: Math.max(...prices),
+        source: 'google-shopping-live',
+        sourceUrl
+      };
+    } catch {
+      return null;
+    } finally {
+      await browser?.close();
+    }
+  }
+
+  private extractPrices(text: string): number[] {
+    const symbols = text.match(/(?:₩|KRW|\$)\s?[0-9][0-9,]*/g) ?? [];
+    const parsed = symbols
+      .map((value) => Number(value.replace(/[^0-9]/g, '')))
+      .filter((value) => Number.isFinite(value) && value >= 1000 && value <= 100000000)
+      .sort((a, b) => a - b);
+
+    if (!parsed.length) return [];
+    const min = parsed[0];
+    const maxAllowed = min * 8;
+    return parsed.filter((value) => value <= maxAllowed);
+  }
+
+  private async loadPlaywright(): Promise<{ chromium?: any } | null> {
+    try {
+      const importer = new Function('name', 'return import(name)') as (name: string) => Promise<any>;
+      return await importer('playwright');
+    } catch {
+      this.logger.warn('Playwright is not installed. Falling back to simulated/external price range.');
+      return null;
+    }
+  }
+
+  private async resolveTargetVariantIds(manualVariantIds?: string[]) {
+    if (manualVariantIds?.length) return [...new Set(manualVariantIds.filter(Boolean))].slice(0, 100);
+
+    const fromEnv = (process.env.CRAWLER_TARGET_VARIANT_IDS ?? '')
+      .split(',')
+      .map((value) => value.trim())
+      .filter(Boolean);
+    if (fromEnv.length) return [...new Set(fromEnv)].slice(0, 100);
+
+    const topVariants = await this.prisma.whiskyAsset.groupBy({
+      by: ['variantId'],
+      where: { variantId: { not: null } },
+      _count: { variantId: true },
+      orderBy: { _count: { variantId: 'desc' } },
+      take: 100
+    });
+    return topVariants.map((row) => row.variantId).filter(Boolean) as string[];
+  }
+
+  private sleep(ms: number) {
+    return new Promise((resolve) => setTimeout(resolve, ms));
   }
 
   private readHost(url: string): string | null {

@@ -28,8 +28,11 @@ export class AdminService {
       aumByVariant.set(asset.variantId, (aumByVariant.get(asset.variantId) ?? 0) + value);
     }
 
-    const variantMap = new Map(
-      variants.map((variant) => [variant.id, `${variant.product.brand.name} ${variant.product.name}${variant.specialTag ? ` ${variant.specialTag}` : ''}`])
+    const variantMap = new Map<string, string>(
+      variants.map((variant: (typeof variants)[number]) => [
+        variant.id,
+        `${variant.product.brand.name} ${variant.product.name}${variant.specialTag ? ` ${variant.specialTag}` : ''}`
+      ])
     );
 
     const topVariantsByAum = [...aumByVariant.entries()]
@@ -119,7 +122,7 @@ export class AdminService {
       select: { id: true, username: true, name: true }
     });
 
-    const userMap = new Map(users.map((user) => [user.id, user]));
+    const userMap = new Map<string, (typeof users)[number]>(users.map((user: (typeof users)[number]) => [user.id, user]));
     const totals = new Map<string, number>();
 
     for (const asset of assets) {
@@ -179,7 +182,7 @@ export class AdminService {
 
     const header = 'asset_id,user_id,variant_id,purchase_price,purchase_date,visibility';
     const lines = assets.map(
-      (asset) =>
+      (asset: (typeof assets)[number]) =>
         `${asset.id},${asset.userId},${asset.variantId ?? ''},${Number(asset.purchasePrice)},${asset.purchaseDate.toISOString()},${asset.visibility}`
     );
 
