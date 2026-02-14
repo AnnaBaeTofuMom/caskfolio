@@ -58,15 +58,15 @@ export function PhoneVerificationForm() {
       <h2>Phone Verification</h2>
       <label>
         Email
-        <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} />
+        <input suppressHydrationWarning type="email" value={email} onChange={(e) => setEmail(e.target.value)} />
       </label>
       <label>
         Phone
-        <input value={phone} onChange={(e) => setPhone(e.target.value)} />
+        <input suppressHydrationWarning value={phone} onChange={(e) => setPhone(e.target.value)} />
       </label>
       <label>
         Code
-        <input value={code} onChange={(e) => setCode(e.target.value)} placeholder="6-digit code" />
+        <input suppressHydrationWarning value={code} onChange={(e) => setCode(e.target.value)} placeholder="6-digit code" />
       </label>
       <div className="actions">
         <button className="btn ghost" type="button" onClick={requestCode}>

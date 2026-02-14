@@ -112,7 +112,7 @@ export function AssetForm() {
     <form className="card form-grid" onSubmit={onSubmit}>
       <label>
         Brand
-        <select value={brandId} onChange={(e) => setBrandId(e.target.value)}>
+        <select suppressHydrationWarning value={brandId} onChange={(e) => setBrandId(e.target.value)}>
           <option value="">Select brand</option>
           {brands.map((brand) => (
             <option key={brand.id} value={brand.id}>
@@ -124,7 +124,7 @@ export function AssetForm() {
 
       <label>
         Product Line
-        <select value={productId} onChange={(e) => setProductId(e.target.value)} disabled={!brandId}>
+        <select suppressHydrationWarning value={productId} onChange={(e) => setProductId(e.target.value)} disabled={!brandId}>
           <option value="">Select product</option>
           {products.map((product) => (
             <option key={product.id} value={product.id}>
@@ -136,7 +136,7 @@ export function AssetForm() {
 
       <label>
         Variant
-        <select value={variantId} onChange={(e) => setVariantId(e.target.value)} disabled={!productId}>
+        <select suppressHydrationWarning value={variantId} onChange={(e) => setVariantId(e.target.value)} disabled={!productId}>
           <option value="">Select variant</option>
           {variants.map((variant) => (
             <option key={variant.id} value={variant.id}>
@@ -152,37 +152,37 @@ export function AssetForm() {
 
       <label>
         Custom Product Name
-        <input value={customProductName} onChange={(e) => setCustomProductName(e.target.value)} placeholder="If not found" />
+        <input suppressHydrationWarning value={customProductName} onChange={(e) => setCustomProductName(e.target.value)} placeholder="If not found" />
       </label>
 
       <label>
         Purchase Price (KRW)
-        <input type="number" value={purchasePrice} onChange={(e) => setPurchasePrice(e.target.value)} placeholder="350000" required />
+        <input suppressHydrationWarning type="number" value={purchasePrice} onChange={(e) => setPurchasePrice(e.target.value)} placeholder="350000" required />
       </label>
 
       <label>
         Purchase Date
-        <input type="date" value={purchaseDate} onChange={(e) => setPurchaseDate(e.target.value)} required />
+        <input suppressHydrationWarning type="date" value={purchaseDate} onChange={(e) => setPurchaseDate(e.target.value)} required />
       </label>
 
       <label className="inline-check">
-        <input type="checkbox" checked={boxAvailable} onChange={(e) => setBoxAvailable(e.target.checked)} />
+        <input suppressHydrationWarning type="checkbox" checked={boxAvailable} onChange={(e) => setBoxAvailable(e.target.checked)} />
         Box available
       </label>
 
       <label>
         Photo URL
-        <input value={photoUrl} onChange={(e) => setPhotoUrl(e.target.value)} placeholder="https://..." />
+        <input suppressHydrationWarning value={photoUrl} onChange={(e) => setPhotoUrl(e.target.value)} placeholder="https://..." />
       </label>
 
       <label>
         Caption
-        <input value={caption} onChange={(e) => setCaption(e.target.value)} placeholder="Write a short note for feed" />
+        <input suppressHydrationWarning value={caption} onChange={(e) => setCaption(e.target.value)} placeholder="Write a short note for feed" />
       </label>
 
       <label>
         Visibility
-        <select value={visibility} onChange={(e) => setVisibility(e.target.value as 'PRIVATE' | 'PUBLIC')}>
+        <select suppressHydrationWarning value={visibility} onChange={(e) => setVisibility(e.target.value as 'PRIVATE' | 'PUBLIC')}>
           <option value="PUBLIC">Public (show in feed)</option>
           <option value="PRIVATE">Private</option>
         </select>

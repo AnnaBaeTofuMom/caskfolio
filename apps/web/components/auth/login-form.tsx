@@ -79,11 +79,11 @@ export function LoginForm() {
     <form className="card form-grid" onSubmit={onSubmit}>
       <label>
         Email
-        <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="you@example.com" />
+        <input suppressHydrationWarning type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="you@example.com" />
       </label>
       <label>
         Password
-        <input type="password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="••••••••" />
+        <input suppressHydrationWarning type="password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="••••••••" />
       </label>
       <button className="btn primary" type="submit">
         Login

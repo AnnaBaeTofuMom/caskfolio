@@ -169,7 +169,7 @@ export function AdminOpsPanel({ users }: { users: AdminUser[] }) {
           <h3>User Role</h3>
           <label>
             User
-            <select value={roleUserId} onChange={(e) => setRoleUserId(e.target.value)}>
+            <select suppressHydrationWarning value={roleUserId} onChange={(e) => setRoleUserId(e.target.value)}>
               {runtimeUsers.map((user) => (
                 <option key={user.id} value={user.id}>
                   @{user.username} ({user.email})
@@ -179,7 +179,7 @@ export function AdminOpsPanel({ users }: { users: AdminUser[] }) {
           </label>
           <label>
             Role
-            <select value={role} onChange={(e) => setRole(e.target.value as 'USER' | 'ADMIN')}>
+            <select suppressHydrationWarning value={role} onChange={(e) => setRole(e.target.value as 'USER' | 'ADMIN')}>
               <option value="USER">USER</option>
               <option value="ADMIN">ADMIN</option>
             </select>
@@ -193,19 +193,19 @@ export function AdminOpsPanel({ users }: { users: AdminUser[] }) {
           <h3>Manual Price Snapshot</h3>
           <label>
             Variant ID
-            <input value={priceVariantId} onChange={(e) => setPriceVariantId(e.target.value)} required />
+            <input suppressHydrationWarning value={priceVariantId} onChange={(e) => setPriceVariantId(e.target.value)} required />
           </label>
           <label>
             Lowest Price
-            <input type="number" value={lowestPrice} onChange={(e) => setLowestPrice(e.target.value)} required />
+            <input suppressHydrationWarning type="number" value={lowestPrice} onChange={(e) => setLowestPrice(e.target.value)} required />
           </label>
           <label>
             Highest Price
-            <input type="number" value={highestPrice} onChange={(e) => setHighestPrice(e.target.value)} required />
+            <input suppressHydrationWarning type="number" value={highestPrice} onChange={(e) => setHighestPrice(e.target.value)} required />
           </label>
           <label>
             Source URL (optional)
-            <input value={sourceUrl} onChange={(e) => setSourceUrl(e.target.value)} />
+            <input suppressHydrationWarning value={sourceUrl} onChange={(e) => setSourceUrl(e.target.value)} />
           </label>
           <button className="btn primary" type="submit">
             Save Snapshot
@@ -216,11 +216,11 @@ export function AdminOpsPanel({ users }: { users: AdminUser[] }) {
           <h3>Brand Update/Delete</h3>
           <label>
             Brand ID
-            <input value={brandId} onChange={(e) => setBrandId(e.target.value)} required />
+            <input suppressHydrationWarning value={brandId} onChange={(e) => setBrandId(e.target.value)} required />
           </label>
           <label>
             New Name
-            <input value={brandName} onChange={(e) => setBrandName(e.target.value)} required />
+            <input suppressHydrationWarning value={brandName} onChange={(e) => setBrandName(e.target.value)} required />
           </label>
           <button className="btn primary" type="submit">
             Update Brand
@@ -234,11 +234,11 @@ export function AdminOpsPanel({ users }: { users: AdminUser[] }) {
           <h3>Product Update/Delete</h3>
           <label>
             Product ID
-            <input value={productId} onChange={(e) => setProductId(e.target.value)} required />
+            <input suppressHydrationWarning value={productId} onChange={(e) => setProductId(e.target.value)} required />
           </label>
           <label>
             New Name
-            <input value={productName} onChange={(e) => setProductName(e.target.value)} required />
+            <input suppressHydrationWarning value={productName} onChange={(e) => setProductName(e.target.value)} required />
           </label>
           <button className="btn primary" type="submit">
             Update Product
@@ -252,11 +252,11 @@ export function AdminOpsPanel({ users }: { users: AdminUser[] }) {
           <h3>Variant Update/Delete</h3>
           <label>
             Variant ID
-            <input value={variantId} onChange={(e) => setVariantId(e.target.value)} required />
+            <input suppressHydrationWarning value={variantId} onChange={(e) => setVariantId(e.target.value)} required />
           </label>
           <label>
             Region
-            <input value={variantRegion} onChange={(e) => setVariantRegion(e.target.value)} required />
+            <input suppressHydrationWarning value={variantRegion} onChange={(e) => setVariantRegion(e.target.value)} required />
           </label>
           <button className="btn primary" type="submit">
             Update Variant
