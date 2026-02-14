@@ -1,10 +1,15 @@
 node_modules
 .pnpm-store
 .env
+.env.production
 .env.local
 .turbo
 .next
+.next-dev
 dist
 coverage
 *.log
 .DS_Store
+*.tsbuildinfo
+client_secret*.json
+caskfolio_design/
