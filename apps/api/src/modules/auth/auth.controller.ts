@@ -17,8 +17,13 @@ export class AuthController {
   }
 
   @Get('google/callback')
-  googleAuthCallback(@Query('code') code?: string) {
-    return { provider: 'google', code: code ?? null, token: 'oauth-token-placeholder' };
+  googleAuthCallback(@Query('sub') sub?: string, @Query('email') email?: string, @Query('name') name?: string) {
+    return this.authService.oauthLogin({
+      provider: 'google',
+      providerSub: sub ?? 'google-dev-sub',
+      email: email ?? 'google-user@caskfolio.com',
+      name: name ?? 'Google User'
+    });
   }
 
   @Get('apple')
@@ -27,8 +32,13 @@ export class AuthController {
   }
 
   @Get('apple/callback')
-  appleAuthCallback(@Query('code') code?: string) {
-    return { provider: 'apple', code: code ?? null, token: 'oauth-token-placeholder' };
+  appleAuthCallback(@Query('sub') sub?: string, @Query('email') email?: string, @Query('name') name?: string) {
+    return this.authService.oauthLogin({
+      provider: 'apple',
+      providerSub: sub ?? 'apple-dev-sub',
+      email: email ?? 'apple-user@caskfolio.com',
+      name: name ?? 'Apple User'
+    });
   }
 
   @Post('signup')
@@ -39,6 +49,16 @@ export class AuthController {
   @Post('login')
   login(@Body() body: { email: string; password: string }) {
     return this.authService.login(body.email, body.password);
+  }
+
+  @Post('refresh')
+  refresh(@Body() body: { refreshToken: string }) {
+    return this.authService.refresh(body.refreshToken);
+  }
+
+  @Post('logout')
+  logout(@Body() body: { refreshToken: string }) {
+    return this.authService.logout(body.refreshToken);
   }
 
   @Post('password-reset/request')
