@@ -1,6 +1,7 @@
 'use client';
 
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
 
 const API_BASE = process.env.NEXT_PUBLIC_API_BASE_URL ?? 'http://localhost:4000/api';
@@ -15,6 +16,7 @@ type Summary = {
 type ChartPoint = { date: string; value: number };
 
 export default function PortfolioPage() {
+  const router = useRouter();
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [loading, setLoading] = useState(true);
   const [summary, setSummary] = useState<Summary | null>(null);
@@ -27,6 +29,7 @@ export default function PortfolioPage() {
     if (!token) {
       setIsAuthenticated(false);
       setLoading(false);
+      router.push('/login');
       return;
     }
 
@@ -58,19 +61,7 @@ export default function PortfolioPage() {
     );
   }
 
-  if (!isAuthenticated) {
-    return (
-      <section className="center-card">
-        <article className="card">
-          <h1>Login Required</h1>
-          <p className="sub">Please sign in to track your portfolio.</p>
-          <Link className="btn primary" href="/login">
-            Sign In
-          </Link>
-        </article>
-      </section>
-    );
-  }
+  if (!isAuthenticated) return null;
 
   const safeSummary = summary ?? {
     totalEstimatedValue: 0,
@@ -90,8 +81,16 @@ export default function PortfolioPage() {
   ];
 
   return (
-    <section>
-      <h1>My Portfolio</h1>
+    <section className="portfolio-wrap">
+      <div className="portfolio-head">
+        <div>
+          <h1>Portfolio Dashboard</h1>
+          <p className="sub">Track your whisky collection's performance</p>
+        </div>
+        <Link className="btn primary" href="/assets/register">
+          Add Asset
+        </Link>
+      </div>
       <div className="metrics">
         {stats.map((stat) => (
           <article key={stat.label} className="card metric">
@@ -100,10 +99,20 @@ export default function PortfolioPage() {
           </article>
         ))}
       </div>
-      <article className="card chart">
+      <article className="card chart portfolio-chart">
         <h2>Portfolio Growth</h2>
         <p>{chart.length ? chart.map((row) => `${row.date}: ${row.value.toLocaleString()}`).join(' / ') : 'No chart data yet.'}</p>
       </article>
+      <div className="grid">
+        <Link href="/assets" className="card">
+          <h3>Manage Assets</h3>
+          <p className="sub">View and edit your collection</p>
+        </Link>
+        <Link href="/feed" className="card">
+          <h3>Explore Feed</h3>
+          <p className="sub">See what others are collecting</p>
+        </Link>
+      </div>
     </section>
   );
 }

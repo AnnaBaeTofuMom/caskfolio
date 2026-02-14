@@ -283,6 +283,22 @@ h1 {
   margin-bottom: 0.8rem;
 }
 
+.portfolio-wrap {
+  display: grid;
+  gap: 1rem;
+}
+
+.portfolio-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.portfolio-chart {
+  min-height: 180px;
+}
+
 .center-card {
   min-height: calc(100vh - 200px);
   display: flex;
