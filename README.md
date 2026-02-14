@@ -8,15 +8,14 @@ Whisky Asset Platform MVP monorepo.
 - Web: Next.js (`apps/web`)
 - DB: PostgreSQL + Prisma (`packages/db`)
 
-## MVP modules
-- Auth: email/password, Google, Apple (endpoint skeleton)
-- Asset registration: brand/product/variant + custom input
-- Portfolio summary + growth chart endpoints
-- Public sharing by asset visibility
-- Trusted pricing: weighted median + fallback logic
-- Daily crawl scheduler at 09:00 KST (contract scaffold)
-- Admin metrics endpoint
-- Social feed: 70% following + 30% recommended
+## Implemented MVP scope
+- Auth: email/password signup/login, JWT access/refresh rotation, logout, password reset token flow, Google/Apple callback upsert flow
+- Asset registration: brand/product/variant lookup + custom input + admin review queue
+- Portfolio: summary/chart + persistent public share links
+- Pricing: internal/external aggregation with weighted-median fallback
+- Social: follow/unfollow, hybrid feed (70/30), public profile
+- Crawler: daily 09:00 KST job writing market snapshots + refreshing aggregates
+- Admin: dashboard metrics, users, catalog create endpoints, custom product approval
 
 ## Quick start
 1. Install deps
@@ -51,15 +50,36 @@ pnpm dev
 
 ## Key routes
 - Web: `/`, `/feed`, `/portfolio`, `/assets`, `/admin`, `/u/{username}`
-- API:
+- API Auth:
   - `POST /api/auth/signup`
   - `POST /api/auth/login`
+  - `POST /api/auth/refresh`
+  - `POST /api/auth/logout`
+  - `POST /api/auth/password-reset/request`
+  - `POST /api/auth/password-reset/confirm`
+  - `GET /api/auth/google/callback`
+  - `GET /api/auth/apple/callback`
+- API Core:
+  - `GET /api/catalog/brands|products|variants`
   - `POST /api/assets`
+  - `PATCH /api/assets/:id`
+  - `GET /api/assets/me`
   - `GET /api/portfolio/me/summary`
+  - `GET /api/portfolio/me/chart`
+  - `POST /api/portfolio/me/share-link`
+  - `GET /api/portfolio/me/share/:slug`
   - `GET /api/social/feed`
+  - `POST /api/social/follow/:userId`
+  - `DELETE /api/social/follow/:userId`
+  - `GET /api/u/:username`
   - `GET /api/variants/:variantId/price`
+- API Admin:
   - `GET /api/admin/metrics`
+  - `GET /api/admin/users`
+  - `GET /api/admin/custom-products`
+  - `PATCH /api/admin/custom-products/:submissionId/approve`
+  - `POST /api/admin/catalog/brands|products|variants`
 
 ## Notes
-- Crawler uses a scheduled stub. Replace with Playwright/Puppeteer flow with robots.txt compliance.
-- OAuth providers are scaffolded at contract level; strategy wiring and provider registration are next implementation steps.
+- Crawler currently uses simulated external prices as a safe placeholder for marketplace crawling integration.
+- OAuth callback currently uses provided query identity values; production token exchange/verification with providers is the next hardening step.
