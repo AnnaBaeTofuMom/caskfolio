@@ -39,4 +39,47 @@ describe('CrawlerService', () => {
     expect(prisma.marketPriceSnapshot.create).toHaveBeenCalledTimes(1);
     expect(prisma.priceAggregate.upsert).toHaveBeenCalledTimes(1);
   });
+
+  it('uses external source template when available and falls back otherwise', async () => {
+    process.env.MARKET_PRICE_SOURCE_URL_TEMPLATE = 'https://prices.example.com/{variantId}';
+
+    const originalFetch = global.fetch;
+    global.fetch = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({ lowestPrice: 210000, highestPrice: 260000 })
+    } as never);
+
+    const prisma: any = {
+      whiskyAsset: {
+        groupBy: vi.fn().mockResolvedValue([{ variantId: 'v-ext' }]),
+        findMany: vi.fn().mockResolvedValue([{ purchasePrice: 200000 }, { purchasePrice: 240000 }, { purchasePrice: 250000 }])
+      },
+      marketPriceSnapshot: {
+        create: vi.fn().mockResolvedValue({ id: 'm1' })
+      },
+      priceAggregate: {
+        upsert: vi.fn().mockResolvedValue({ id: 'p1' })
+      }
+    };
+
+    const priceAggregateService: any = {
+      calculateTrustedPrice: vi.fn().mockReturnValue({ method: 'WEIGHTED_MEDIAN', trustedPrice: 240000, confidence: 0.8 })
+    };
+
+    const service = new CrawlerService(prisma, priceAggregateService);
+    await service.crawlDailyTop100();
+
+    expect(prisma.marketPriceSnapshot.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          lowestPrice: 210000,
+          highestPrice: 260000,
+          source: 'external-prices.example.com'
+        })
+      })
+    );
+
+    global.fetch = originalFetch;
+    delete process.env.MARKET_PRICE_SOURCE_URL_TEMPLATE;
+  });
 });

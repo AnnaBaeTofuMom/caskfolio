@@ -45,17 +45,22 @@ export class CrawlerService {
 
       if (!sorted.length) continue;
 
+      const externalRange = await this.fetchExternalRange(row.variantId);
       const mid = sorted[Math.floor(sorted.length / 2)];
       const simulatedLow = Math.round(mid * 0.95);
       const simulatedHigh = Math.round(mid * 1.12);
+      const lowestPrice = externalRange?.lowestPrice ?? simulatedLow;
+      const highestPrice = externalRange?.highestPrice ?? simulatedHigh;
+      const source = externalRange?.source ?? 'simulated-google-shopping';
+      const sourceUrl = externalRange?.sourceUrl ?? null;
 
       await this.prisma.marketPriceSnapshot.create({
         data: {
           variantId: row.variantId,
-          lowestPrice: simulatedLow,
-          highestPrice: simulatedHigh,
-          source: 'simulated-google-shopping',
-          sourceUrl: null,
+          lowestPrice,
+          highestPrice,
+          source,
+          sourceUrl,
           crawledAt: new Date()
         }
       });
@@ -63,8 +68,8 @@ export class CrawlerService {
       const trusted = this.priceAggregateService.calculateTrustedPrice(
         sorted.map((price) => ({ price, weight: 1 })),
         [
-          { price: simulatedLow, weight: 2 },
-          { price: simulatedHigh, weight: 2 }
+          { price: lowestPrice, weight: 2 },
+          { price: highestPrice, weight: 2 }
         ]
       );
 
@@ -93,7 +98,7 @@ export class CrawlerService {
     return {
       crawledAt: new Date().toISOString(),
       nextCrawlAt: this.nextCrawlAt(),
-      source: 'simulated-google-shopping',
+      source: process.env.MARKET_PRICE_SOURCE_URL_TEMPLATE ? 'external+simulated-fallback' : 'simulated-google-shopping',
       items: processed
     };
   }
@@ -112,5 +117,43 @@ export class CrawlerService {
       referenceMs < todayNineAmKstMs ? todayNineAmKstMs : todayNineAmKstMs + CrawlerService.KST_DAY_MS;
 
     return new Date(nextCrawlMs).toISOString();
+  }
+
+  private async fetchExternalRange(
+    variantId: string
+  ): Promise<{ lowestPrice: number; highestPrice: number; source: string; sourceUrl?: string } | null> {
+    const template = process.env.MARKET_PRICE_SOURCE_URL_TEMPLATE;
+    if (!template || !template.includes('{variantId}')) return null;
+
+    const sourceUrl = template.replace('{variantId}', encodeURIComponent(variantId));
+    try {
+      const response = await fetch(sourceUrl);
+      if (!response.ok) return null;
+
+      const data = (await response.json()) as { lowestPrice?: unknown; highestPrice?: unknown };
+      const lowestPrice = Number(data.lowestPrice);
+      const highestPrice = Number(data.highestPrice);
+      if (!Number.isFinite(lowestPrice) || !Number.isFinite(highestPrice) || lowestPrice <= 0 || highestPrice <= 0) {
+        return null;
+      }
+
+      const sourceHost = this.readHost(sourceUrl);
+      return {
+        lowestPrice,
+        highestPrice,
+        source: sourceHost ? `external-${sourceHost}` : 'external-source',
+        sourceUrl
+      };
+    } catch {
+      return null;
+    }
+  }
+
+  private readHost(url: string): string | null {
+    try {
+      return new URL(url).host;
+    } catch {
+      return null;
+    }
   }
 }

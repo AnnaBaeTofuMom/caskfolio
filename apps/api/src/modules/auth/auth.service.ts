@@ -2,12 +2,14 @@ import { BadRequestException, Injectable, UnauthorizedException } from '@nestjs/
 import { JwtService } from '@nestjs/jwt';
 import { randomBytes, randomUUID, scryptSync, timingSafeEqual, createHash } from 'node:crypto';
 import { PrismaService } from '../../prisma/prisma.service.js';
+import { SmsService } from './sms.service.js';
 
 @Injectable()
 export class AuthService {
   constructor(
     private readonly prisma: PrismaService,
-    private readonly jwt: JwtService
+    private readonly jwt: JwtService,
+    private readonly sms: SmsService = new SmsService()
   ) {}
 
   async signup(email: string, password: string, name: string) {
@@ -25,11 +27,12 @@ export class AuthService {
         email,
         name,
         username,
-        passwordHash
+        passwordHash,
+        role: this.resolveSignupRole(email)
       }
     });
 
-    return this.issueTokens(user.id, user.email, user.name);
+    return this.issueTokens(user.id, user.email, user.name, user.role);
   }
 
   async login(email: string, password: string) {
@@ -38,7 +41,7 @@ export class AuthService {
       throw new UnauthorizedException('invalid credentials');
     }
 
-    return this.issueTokens(user.id, user.email, user.name);
+    return this.issueTokens(user.id, user.email, user.name, user.role);
   }
 
   async oauthLogin(input: { provider: 'google' | 'apple'; providerSub: string; email: string; name: string }) {
@@ -55,7 +58,8 @@ export class AuthService {
           name: input.name,
           username: `${input.email.split('@')[0].replace(/[^a-zA-Z0-9_]/g, '').toLowerCase()}${Date.now().toString().slice(-6)}`,
           provider: input.provider,
-          providerSub: input.providerSub
+          providerSub: input.providerSub,
+          role: this.resolveSignupRole(input.email)
         },
         update: {
           name: input.name,
@@ -64,7 +68,7 @@ export class AuthService {
         }
       }));
 
-    return this.issueTokens(user.id, user.email, user.name);
+    return this.issueTokens(user.id, user.email, user.name, user.role);
   }
 
   async refresh(refreshToken: string) {
@@ -89,7 +93,7 @@ export class AuthService {
       throw new UnauthorizedException('invalid refresh token');
     }
 
-    return this.issueTokens(user.id, user.email, user.name);
+    return this.issueTokens(user.id, user.email, user.name, user.role);
   }
 
   async logout(refreshToken: string) {
@@ -164,12 +168,13 @@ export class AuthService {
         expiresAt
       }
     });
+    await this.sms.sendVerificationCode(phone, code);
 
+    const exposeCode = process.env.NODE_ENV !== 'production' || (process.env.SMS_PROVIDER ?? 'mock').toLowerCase() === 'mock';
     return {
       accepted: true,
       phone,
-      // Dev-mode exposure. Replace with SMS provider dispatch in production.
-      code
+      ...(exposeCode ? { code } : {})
     };
   }
 
@@ -221,11 +226,11 @@ export class AuthService {
     return timingSafeEqual(candidate, actual);
   }
 
-  private async issueTokens(userId: string, email: string, name: string) {
+  private async issueTokens(userId: string, email: string, name: string, role: 'USER' | 'ADMIN') {
     const sid = randomUUID();
 
     const token = await this.jwt.signAsync(
-      { sub: userId, email, name, type: 'access' },
+      { sub: userId, email, name, role, type: 'access' },
       {
         secret: process.env.JWT_ACCESS_SECRET ?? 'dev-access-secret',
         expiresIn: '15m'
@@ -296,5 +301,13 @@ export class AuthService {
         username
       }
     });
+  }
+
+  private resolveSignupRole(email: string): 'USER' | 'ADMIN' {
+    const allowlist = (process.env.ADMIN_EMAILS ?? '')
+      .split(',')
+      .map((it) => it.trim().toLowerCase())
+      .filter(Boolean);
+    return allowlist.includes(email.toLowerCase()) ? 'ADMIN' : 'USER';
   }
 }

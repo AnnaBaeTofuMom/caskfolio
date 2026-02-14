@@ -19,8 +19,8 @@ export class AuthController {
   ) {}
 
   @Get('google')
-  googleAuthStart() {
-    return { provider: 'google', redirect: '/auth/google/callback' };
+  googleAuthStart(@Query('redirectUri') redirectUri?: string) {
+    return { provider: 'google', url: this.oauthService.buildGoogleAuthUrl(redirectUri) };
   }
 
   @Get('google/callback')
@@ -39,8 +39,8 @@ export class AuthController {
   }
 
   @Get('apple')
-  appleAuthStart() {
-    return { provider: 'apple', redirect: '/auth/apple/callback' };
+  appleAuthStart(@Query('redirectUri') redirectUri?: string) {
+    return { provider: 'apple', url: this.oauthService.buildAppleAuthUrl(redirectUri) };
   }
 
   @Get('apple/callback')

@@ -1,6 +1,6 @@
 'use client';
 
-import { FormEvent, useState } from 'react';
+import { FormEvent, useEffect, useState } from 'react';
 
 const API_BASE = process.env.NEXT_PUBLIC_API_BASE_URL ?? 'http://localhost:4000/api';
 
@@ -13,6 +13,7 @@ type AdminUser = {
 };
 
 export function AdminOpsPanel({ users }: { users: AdminUser[] }) {
+  const [runtimeUsers, setRuntimeUsers] = useState<AdminUser[]>(users);
   const [status, setStatus] = useState('');
   const [roleUserId, setRoleUserId] = useState(users[0]?.id ?? '');
   const [role, setRole] = useState<'USER' | 'ADMIN'>(users[0]?.role ?? 'USER');
@@ -27,10 +28,40 @@ export function AdminOpsPanel({ users }: { users: AdminUser[] }) {
   const [priceVariantId, setPriceVariantId] = useState('');
   const [sourceUrl, setSourceUrl] = useState('');
 
+  async function fetchUsers() {
+    const token = window.localStorage.getItem('caskfolio_access_token');
+    if (!token) return;
+    const response = await fetch(`${API_BASE}/admin/users`, {
+      headers: { Authorization: `Bearer ${token}` }
+    });
+    if (!response.ok) return;
+    const data = (await response.json()) as AdminUser[];
+    setRuntimeUsers(data);
+    if (!roleUserId && data[0]) {
+      setRoleUserId(data[0].id);
+      setRole(data[0].role);
+    }
+  }
+
+  useEffect(() => {
+    if (runtimeUsers.length === 0) {
+      void fetchUsers();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   async function send(path: string, method: 'POST' | 'PATCH', body?: Record<string, unknown>) {
+    const token = window.localStorage.getItem('caskfolio_access_token');
+    if (!token) {
+      throw new Error('missing token');
+    }
+
     const response = await fetch(`${API_BASE}${path}`, {
       method,
-      headers: { 'Content-Type': 'application/json' },
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${token}`
+      },
       body: body ? JSON.stringify(body) : undefined
     });
     if (!response.ok) {
@@ -139,7 +170,7 @@ export function AdminOpsPanel({ users }: { users: AdminUser[] }) {
           <label>
             User
             <select value={roleUserId} onChange={(e) => setRoleUserId(e.target.value)}>
-              {users.map((user) => (
+              {runtimeUsers.map((user) => (
                 <option key={user.id} value={user.id}>
                   @{user.username} ({user.email})
                 </option>

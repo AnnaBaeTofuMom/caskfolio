@@ -1,4 +1,5 @@
 import { BadRequestException, Injectable, UnauthorizedException } from '@nestjs/common';
+import { randomBytes } from 'node:crypto';
 
 interface OAuthProfile {
   providerSub: string;
@@ -8,6 +9,39 @@ interface OAuthProfile {
 
 @Injectable()
 export class OauthService {
+  buildGoogleAuthUrl(redirectUri?: string) {
+    const clientId = process.env.GOOGLE_CLIENT_ID;
+    if (!clientId) {
+      throw new BadRequestException('GOOGLE_CLIENT_ID is not configured');
+    }
+    const callback = redirectUri ?? process.env.GOOGLE_REDIRECT_URI ?? 'http://localhost:3000/auth/login';
+    const params = new URLSearchParams({
+      client_id: clientId,
+      redirect_uri: callback,
+      response_type: 'id_token',
+      scope: 'openid email profile',
+      nonce: cryptoRandom()
+    });
+    return `https://accounts.google.com/o/oauth2/v2/auth?${params.toString()}`;
+  }
+
+  buildAppleAuthUrl(redirectUri?: string) {
+    const clientId = process.env.APPLE_CLIENT_ID;
+    if (!clientId) {
+      throw new BadRequestException('APPLE_CLIENT_ID is not configured');
+    }
+    const callback = redirectUri ?? process.env.APPLE_REDIRECT_URI ?? 'http://localhost:3000/auth/login';
+    const params = new URLSearchParams({
+      client_id: clientId,
+      redirect_uri: callback,
+      response_type: 'code id_token',
+      response_mode: 'fragment',
+      scope: 'name email',
+      nonce: cryptoRandom()
+    });
+    return `https://appleid.apple.com/auth/authorize?${params.toString()}`;
+  }
+
   async verifyGoogleIdToken(idToken: string): Promise<OAuthProfile> {
     const response = await fetch(`https://oauth2.googleapis.com/tokeninfo?id_token=${encodeURIComponent(idToken)}`);
     if (!response.ok) {
@@ -94,4 +128,8 @@ export class OauthService {
     const value = payload[key];
     return typeof value === 'number' ? value : null;
   }
+}
+
+function cryptoRandom() {
+  return randomBytes(16).toString('hex');
 }
