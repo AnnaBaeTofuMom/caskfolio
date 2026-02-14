@@ -122,3 +122,12 @@
   - Login -> Asset registration -> Feed -> Portfolio
   - Public profile view
   - Admin dashboard basic flow
+
+## 10. Auth Interaction Update (2026-02-14)
+- Google login CTA should be treated as full-page redirect action (anchor-style navigation).
+  - Target endpoint: `/api/auth/google?direct=1`
+- No intermediate client modal/spinner is required before redirect.
+- Error state to include in auth designs:
+  - OAuth provider error page case (`401 deleted_client`) with retry/help text guidance.
+- Implementation alignment note:
+  - Web app API default base path is `/api` in production/client fallback logic.

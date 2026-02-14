@@ -104,3 +104,27 @@
 **Step 2: Document run/deploy flow
 
 **Step 3: Commit in logical chunks
+
+---
+
+## Post-implementation production updates (2026-02-14)
+
+### Auth flow logic updates
+- Web API base fallback changed:
+  - from `/api-proxy`
+  - to `/api`
+- Google login flow changed to direct redirect mode:
+  - client entry: `/api/auth/google?direct=1`
+  - server behavior: immediate `302` to Google OAuth URL
+- Active OAuth redirect URI:
+  - `https://caskfolio.club/auth/login`
+
+### Operational verification checklist
+1. Check redirect behavior:
+   - `curl -i "https://caskfolio.club/api/auth/google?direct=1"`
+   - expected: `HTTP/2 302` with `location: https://accounts.google.com/...`
+2. Validate client id in redirect `location` matches current intended Google OAuth client.
+3. If Google returns `Error 401: deleted_client`:
+   - recreate OAuth client in Google Cloud Console
+   - update `GOOGLE_CLIENT_ID` and `GOOGLE_CLIENT_SECRET`
+   - rebuild/restart `api`, `web`, `caddy` containers

@@ -57,6 +57,8 @@ pnpm dev
   - `POST /api/auth/logout`
   - `POST /api/auth/password-reset/request`
   - `POST /api/auth/password-reset/confirm`
+  - `GET /api/auth/google` (default: provider URL JSON response)
+  - `GET /api/auth/google?direct=1` (direct 302 redirect to Google OAuth)
   - `GET /api/auth/google/callback`
   - `GET /api/auth/apple/callback`
 - API Core:
@@ -83,3 +85,12 @@ pnpm dev
 ## Notes
 - Crawler currently uses simulated external prices as a safe placeholder for marketplace crawling integration.
 - OAuth callback currently uses provided query identity values; production token exchange/verification with providers is the next hardening step.
+
+## Production auth hotfix (2026-02-14)
+- Web client API fallback default changed from `/api-proxy` to `/api`.
+- Login entry switched to direct browser navigation for Google OAuth:
+  - Login button href: `/api/auth/google?direct=1`
+  - API behavior for `direct=1`: immediate 302 to Google auth endpoint
+- OAuth redirect URI in active flow is `https://caskfolio.club/auth/login`.
+- If Google shows `Error 401: deleted_client`, the OAuth client in Google Cloud has been deleted.
+  - Action: create a new OAuth client and update `GOOGLE_CLIENT_ID` and `GOOGLE_CLIENT_SECRET` in production env.

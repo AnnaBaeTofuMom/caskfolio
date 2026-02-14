@@ -71,3 +71,12 @@ Weight dimensions:
 ## Phase Notes
 - Phase 1 includes core MVP plus social feed and trusted price display
 - Barcode scan remains planned in Phase 2
+
+## Auth UX/Flow Update (2026-02-14)
+- Web runtime API base default is `/api`.
+- Google sign-in is now direct browser redirect (not fetch-first popup/json handoff):
+  - Entry: `/api/auth/google?direct=1`
+  - Result: backend returns immediate `302` to Google OAuth page.
+- OAuth return path currently targets `/auth/login` in production domain.
+- Production dependency:
+  - Active Google OAuth client must exist and match configured `GOOGLE_CLIENT_ID`.
