@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Headers, Post } from '@nestjs/common';
+import { Body, Controller, Get, Headers, Param, Post } from '@nestjs/common';
 import { PortfolioService } from './portfolio.service.js';
 
 @Controller('portfolio/me')
@@ -21,5 +21,10 @@ export class PortfolioController {
     @Body() body: { selectedAssetIds?: string[] }
   ) {
     return this.portfolioService.createShareLink(userEmail, body.selectedAssetIds ?? []);
+  }
+
+  @Get('/share/:slug')
+  sharedPortfolio(@Param('slug') slug: string) {
+    return this.portfolioService.sharedPortfolio(slug);
   }
 }

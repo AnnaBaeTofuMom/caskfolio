@@ -1,4 +1,5 @@
 import { Injectable } from '@nestjs/common';
+import { randomBytes } from 'node:crypto';
 import { PrismaService } from '../../prisma/prisma.service.js';
 
 interface SummaryRow {
@@ -61,11 +62,63 @@ export class PortfolioService {
 
   async createShareLink(userEmail: string, selectedAssetIds: string[]) {
     const user = await this.ensureUser(userEmail);
+    const slug = this.generateShareSlug();
+    const selected = selectedAssetIds.length
+      ? selectedAssetIds
+      : (
+          await this.prisma.whiskyAsset.findMany({
+            where: { userId: user.id, visibility: 'PUBLIC' },
+            select: { id: true },
+            take: 30
+          })
+        ).map((asset) => asset.id);
+
+    await this.prisma.portfolioShare.create({
+      data: {
+        userId: user.id,
+        slug,
+        selectedAssetIds: selected
+      }
+    });
 
     return {
-      url: `https://example.com/u/${user.username}`,
-      selectedAssetIds,
+      url: `https://example.com/portfolio/share/${slug}`,
+      selectedAssetIds: selected,
       visibility: 'PUBLIC'
+    };
+  }
+
+  async sharedPortfolio(slug: string) {
+    const share = await this.prisma.portfolioShare.findUnique({
+      where: { slug },
+      include: { user: true }
+    });
+
+    if (!share) {
+      return { found: false };
+    }
+
+    const assets = await this.prisma.whiskyAsset.findMany({
+      where: {
+        id: { in: share.selectedAssetIds },
+        visibility: 'PUBLIC'
+      },
+      include: {
+        variant: { include: { product: { include: { brand: true } }, priceAggregate: true } }
+      }
+    });
+
+    return {
+      found: true,
+      slug: share.slug,
+      owner: { username: share.user.username, name: share.user.name },
+      assets: assets.map((asset) => ({
+        id: asset.id,
+        name:
+          asset.customProductName ??
+          [asset.variant?.product.brand.name, asset.variant?.product.name, asset.variant?.specialTag].filter(Boolean).join(' '),
+        trustedPrice: asset.variant?.priceAggregate?.trustedPrice ? Number(asset.variant.priceAggregate.trustedPrice) : null
+      }))
     };
   }
 
@@ -83,5 +136,9 @@ export class PortfolioService {
         name: usernameBase || 'User'
       }
     });
+  }
+
+  private generateShareSlug() {
+    return randomBytes(8).toString('hex');
   }
 }
