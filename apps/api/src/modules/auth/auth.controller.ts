@@ -1,5 +1,5 @@
 import { Body, Controller, Get, Post, Query } from '@nestjs/common';
-import { randomUUID } from 'node:crypto';
+import { AuthService } from './auth.service.js';
 
 class SignupDto {
   email!: string;
@@ -9,6 +9,8 @@ class SignupDto {
 
 @Controller('auth')
 export class AuthController {
+  constructor(private readonly authService: AuthService) {}
+
   @Get('google')
   googleAuthStart() {
     return { provider: 'google', redirect: '/auth/google/callback' };
@@ -16,7 +18,7 @@ export class AuthController {
 
   @Get('google/callback')
   googleAuthCallback(@Query('code') code?: string) {
-    return { provider: 'google', code: code ?? null, token: 'jwt-access-token' };
+    return { provider: 'google', code: code ?? null, token: 'oauth-token-placeholder' };
   }
 
   @Get('apple')
@@ -26,32 +28,26 @@ export class AuthController {
 
   @Get('apple/callback')
   appleAuthCallback(@Query('code') code?: string) {
-    return { provider: 'apple', code: code ?? null, token: 'jwt-access-token' };
+    return { provider: 'apple', code: code ?? null, token: 'oauth-token-placeholder' };
   }
 
   @Post('signup')
   signup(@Body() body: SignupDto) {
-    return {
-      id: randomUUID(),
-      email: body.email,
-      name: body.name,
-      token: 'jwt-access-token',
-      refreshToken: 'jwt-refresh-token'
-    };
+    return this.authService.signup(body.email, body.password, body.name);
   }
 
   @Post('login')
-  login(@Body() body: { email: string }) {
-    return { email: body.email, token: 'jwt-access-token', refreshToken: 'jwt-refresh-token' };
+  login(@Body() body: { email: string; password: string }) {
+    return this.authService.login(body.email, body.password);
   }
 
   @Post('password-reset/request')
   passwordResetRequest(@Body() body: { email: string }) {
-    return { accepted: true, email: body.email };
+    return this.authService.passwordResetRequest(body.email);
   }
 
   @Post('password-reset/confirm')
-  passwordResetConfirm(@Body() body: { token: string }) {
-    return { accepted: true, token: body.token };
+  passwordResetConfirm(@Body() body: { token: string; newPassword: string }) {
+    return this.authService.passwordResetConfirm(body.token, body.newPassword);
   }
 }

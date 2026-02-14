@@ -52,6 +52,7 @@ model User {
   following      Follow[]      @relation("following")
   outgoingTrades OwnershipHistory[] @relation("previousOwner")
   incomingTrades OwnershipHistory[] @relation("newOwner")
+  passwordResetTokens PasswordResetToken[]
 }
 
 model Brand {
@@ -182,4 +183,16 @@ model BarcodeMapping {
   barcode   String  @id
   variantId String
   variant   Variant @relation(fields: [variantId], references: [id], onDelete: Cascade)
+}
+
+model PasswordResetToken {
+  id        String   @id @default(uuid())
+  userId    String
+  token     String   @unique
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([token, expiresAt, usedAt])
 }
