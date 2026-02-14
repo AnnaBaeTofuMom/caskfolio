@@ -76,4 +76,75 @@ describe('AdminService', () => {
     expect(holders[0].userId).toBe('u2');
     expect(holders[0].aum).toBe(500);
   });
+
+  it('updates user role', async () => {
+    const prisma: any = {
+      user: {
+        update: vi.fn().mockResolvedValue({
+          id: 'u1',
+          role: 'ADMIN'
+        })
+      }
+    };
+
+    const service = new AdminService(prisma);
+    const result = await service.updateUserRole('u1', 'ADMIN');
+    expect(result.role).toBe('ADMIN');
+    expect(prisma.user.update).toHaveBeenCalledWith({
+      where: { id: 'u1' },
+      data: { role: 'ADMIN' },
+      select: { id: true, email: true, name: true, username: true, role: true }
+    });
+  });
+
+  it('updates and deletes catalog items', async () => {
+    const prisma: any = {
+      brand: {
+        update: vi.fn().mockResolvedValue({ id: 'b1', name: 'Macallan' }),
+        delete: vi.fn().mockResolvedValue({ id: 'b1' })
+      },
+      product: {
+        update: vi.fn().mockResolvedValue({ id: 'p1', name: '18', brandId: 'b1' }),
+        delete: vi.fn().mockResolvedValue({ id: 'p1' })
+      },
+      variant: {
+        update: vi.fn().mockResolvedValue({ id: 'v1' }),
+        delete: vi.fn().mockResolvedValue({ id: 'v1' })
+      }
+    };
+
+    const service = new AdminService(prisma);
+    await service.updateBrand('b1', 'Macallan');
+    await service.deleteBrand('b1');
+    await service.updateProduct('p1', { name: '18' });
+    await service.deleteProduct('p1');
+    await service.updateVariant('v1', { region: 'Speyside' });
+    await service.deleteVariant('v1');
+
+    expect(prisma.brand.update).toHaveBeenCalledTimes(1);
+    expect(prisma.brand.delete).toHaveBeenCalledTimes(1);
+    expect(prisma.product.update).toHaveBeenCalledTimes(1);
+    expect(prisma.product.delete).toHaveBeenCalledTimes(1);
+    expect(prisma.variant.update).toHaveBeenCalledTimes(1);
+    expect(prisma.variant.delete).toHaveBeenCalledTimes(1);
+  });
+
+  it('creates manual market price snapshot', async () => {
+    const prisma: any = {
+      marketPriceSnapshot: {
+        create: vi.fn().mockResolvedValue({ id: 'm1', variantId: 'v1' })
+      }
+    };
+
+    const service = new AdminService(prisma);
+    await service.createManualMarketPriceSnapshot({
+      variantId: 'v1',
+      lowestPrice: 100_000,
+      highestPrice: 120_000,
+      source: 'admin_manual',
+      sourceUrl: 'https://example.com'
+    });
+
+    expect(prisma.marketPriceSnapshot.create).toHaveBeenCalledTimes(1);
+  });
 });

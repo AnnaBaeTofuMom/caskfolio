@@ -150,6 +150,62 @@ export class AuthService {
     return { accepted: true };
   }
 
+  async requestPhoneVerification(email: string, phone: string) {
+    const user = await this.ensureUserByEmail(email);
+    const code = String(Math.floor(100000 + Math.random() * 900000));
+    const codeHash = this.hashToken(code);
+    const expiresAt = new Date(Date.now() + 1000 * 60 * 5);
+
+    await this.prisma.phoneVerification.create({
+      data: {
+        userId: user.id,
+        phone,
+        codeHash,
+        expiresAt
+      }
+    });
+
+    return {
+      accepted: true,
+      phone,
+      // Dev-mode exposure. Replace with SMS provider dispatch in production.
+      code
+    };
+  }
+
+  async verifyPhoneCode(email: string, phone: string, code: string) {
+    const user = await this.prisma.user.findUnique({ where: { email } });
+    if (!user) {
+      throw new BadRequestException('user not found');
+    }
+
+    const verification = await this.prisma.phoneVerification.findFirst({
+      where: {
+        userId: user.id,
+        phone,
+        verifiedAt: null,
+        expiresAt: { gt: new Date() }
+      },
+      orderBy: { createdAt: 'desc' }
+    });
+
+    if (!verification || verification.codeHash !== this.hashToken(code)) {
+      throw new UnauthorizedException('invalid verification code');
+    }
+
+    await this.prisma.phoneVerification.update({
+      where: { id: verification.id },
+      data: { verifiedAt: new Date() }
+    });
+
+    await this.prisma.user.update({
+      where: { id: user.id },
+      data: { phone }
+    });
+
+    return { verified: true, phone };
+  }
+
   hashPassword(password: string) {
     const salt = randomBytes(16).toString('hex');
     const hash = scryptSync(password, salt, 64).toString('hex');
@@ -224,5 +280,21 @@ export class AuthService {
 
   private verifyTokenHash(token: string, hash: string) {
     return this.hashToken(token) === hash;
+  }
+
+  private async ensureUserByEmail(email: string) {
+    const existing = await this.prisma.user.findUnique({ where: { email } });
+    if (existing) return existing;
+
+    const usernameBase = email.split('@')[0].replace(/[^a-zA-Z0-9_]/g, '').toLowerCase() || 'user';
+    const username = `${usernameBase}${Date.now().toString().slice(-6)}`;
+
+    return this.prisma.user.create({
+      data: {
+        email,
+        name: usernameBase || 'User',
+        username
+      }
+    });
   }
 }

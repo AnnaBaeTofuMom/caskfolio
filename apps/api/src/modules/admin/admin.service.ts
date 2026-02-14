@@ -58,6 +58,30 @@ export class AdminService {
     return this.prisma.variant.create({ data: input });
   }
 
+  updateBrand(id: string, name: string) {
+    return this.prisma.brand.update({ where: { id }, data: { name } });
+  }
+
+  deleteBrand(id: string) {
+    return this.prisma.brand.delete({ where: { id } });
+  }
+
+  updateProduct(id: string, input: { brandId?: string; name?: string }) {
+    return this.prisma.product.update({ where: { id }, data: input });
+  }
+
+  deleteProduct(id: string) {
+    return this.prisma.product.delete({ where: { id } });
+  }
+
+  updateVariant(id: string, input: { productId?: string; releaseYear?: number; bottleSize?: number; region?: string; specialTag?: string }) {
+    return this.prisma.variant.update({ where: { id }, data: input });
+  }
+
+  deleteVariant(id: string) {
+    return this.prisma.variant.delete({ where: { id } });
+  }
+
   users() {
     return this.prisma.user.findMany({
       select: {
@@ -70,6 +94,20 @@ export class AdminService {
       },
       orderBy: { createdAt: 'desc' },
       take: 200
+    });
+  }
+
+  updateUserRole(userId: string, role: 'USER' | 'ADMIN') {
+    return this.prisma.user.update({
+      where: { id: userId },
+      data: { role },
+      select: {
+        id: true,
+        email: true,
+        name: true,
+        username: true,
+        role: true
+      }
     });
   }
 
@@ -151,5 +189,23 @@ export class AdminService {
       filename: `caskfolio-export-${new Date().toISOString().slice(0, 10)}.csv`,
       csv: [header, ...lines].join('\n')
     };
+  }
+
+  createManualMarketPriceSnapshot(input: {
+    variantId: string;
+    lowestPrice: number;
+    highestPrice: number;
+    source?: string;
+    sourceUrl?: string;
+  }) {
+    return this.prisma.marketPriceSnapshot.create({
+      data: {
+        variantId: input.variantId,
+        lowestPrice: input.lowestPrice,
+        highestPrice: input.highestPrice,
+        source: input.source ?? 'admin_manual',
+        sourceUrl: input.sourceUrl
+      }
+    });
   }
 }

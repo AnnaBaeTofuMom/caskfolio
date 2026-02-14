@@ -92,4 +92,16 @@ export class AuthController {
   passwordResetConfirm(@Body() body: { token: string; newPassword: string }) {
     return this.authService.passwordResetConfirm(body.token, body.newPassword);
   }
+
+  @Post('phone/request')
+  @RateLimit(5, 60_000)
+  phoneVerificationRequest(@Body() body: { email: string; phone: string }) {
+    return this.authService.requestPhoneVerification(body.email, body.phone);
+  }
+
+  @Post('phone/verify')
+  @RateLimit(10, 60_000)
+  phoneVerificationVerify(@Body() body: { email: string; phone: string; code: string }) {
+    return this.authService.verifyPhoneCode(body.email, body.phone, body.code);
+  }
 }

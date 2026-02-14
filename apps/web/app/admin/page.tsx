@@ -1,4 +1,5 @@
 import { safeFetch } from '../../lib/api';
+import { AdminOpsPanel } from '../../components/admin/admin-ops-panel';
 
 export const dynamic = 'force-dynamic';
 
@@ -18,6 +19,10 @@ export default async function AdminPage() {
 
   const topHolders =
     (await safeFetch<Array<{ userId: string; username: string; name: string; aum: number }>>('/admin/top-holders')) ?? [];
+  const users =
+    (await safeFetch<Array<{ id: string; email: string; name: string; username: string; role: 'USER' | 'ADMIN' }>>(
+      '/admin/users'
+    )) ?? [];
 
   const cards = [
     ['Total Users', metrics.totalUsers.toLocaleString()],
@@ -51,6 +56,7 @@ export default async function AdminPage() {
           <p>No holder data yet.</p>
         )}
       </article>
+      <AdminOpsPanel users={users} />
     </section>
   );
 }

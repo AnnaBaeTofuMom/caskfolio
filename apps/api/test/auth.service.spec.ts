@@ -97,4 +97,63 @@ describe('AuthService', () => {
     expect(result.token).toContain('jwt-access');
     expect(prisma.authSession.update).toHaveBeenCalledTimes(1);
   });
+
+  it('creates phone verification code for existing user', async () => {
+    const prisma: any = {
+      user: {
+        findUnique: vi.fn().mockResolvedValue({
+          id: 'u1',
+          email: 'demo@caskfolio.com',
+          name: 'Demo',
+          username: 'demo'
+        })
+      },
+      phoneVerification: {
+        create: vi.fn().mockResolvedValue({ id: 'p1' })
+      }
+    };
+
+    const service = new AuthService(prisma, jwt);
+    const result = await service.requestPhoneVerification('demo@caskfolio.com', '+821012341234');
+
+    expect(result.accepted).toBe(true);
+    expect(result.phone).toBe('+821012341234');
+    expect(result.code).toHaveLength(6);
+    expect(prisma.phoneVerification.create).toHaveBeenCalledTimes(1);
+  });
+
+  it('verifies phone code and updates user phone', async () => {
+    const prisma: any = {
+      user: {
+        findUnique: vi.fn().mockResolvedValue({
+          id: 'u1',
+          email: 'demo@caskfolio.com',
+          name: 'Demo',
+          username: 'demo'
+        }),
+        update: vi.fn().mockResolvedValue({})
+      },
+      phoneVerification: {
+        findFirst: vi.fn(),
+        update: vi.fn().mockResolvedValue({})
+      }
+    };
+
+    const service = new AuthService(prisma, jwt);
+    const hash = (service as any).hashToken('123456');
+    prisma.phoneVerification.findFirst.mockResolvedValue({
+      id: 'p1',
+      userId: 'u1',
+      phone: '+82105556666',
+      codeHash: hash,
+      expiresAt: new Date(Date.now() + 60_000),
+      verifiedAt: null
+    });
+
+    const result = await service.verifyPhoneCode('demo@caskfolio.com', '+82105556666', '123456');
+
+    expect(result.verified).toBe(true);
+    expect(prisma.phoneVerification.update).toHaveBeenCalledTimes(1);
+    expect(prisma.user.update).toHaveBeenCalledTimes(1);
+  });
 });
