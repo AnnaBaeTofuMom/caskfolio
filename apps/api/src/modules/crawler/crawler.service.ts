@@ -236,7 +236,7 @@ export class CrawlerService {
     });
     return topVariants
       .map((row: (typeof topVariants)[number]) => row.variantId)
-      .filter((value): value is string => Boolean(value));
+      .filter((value: string | null): value is string => Boolean(value));
   }
 
   private sleep(ms: number) {
