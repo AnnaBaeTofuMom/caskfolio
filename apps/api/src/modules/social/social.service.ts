@@ -99,13 +99,20 @@ export class SocialService {
 
         return {
           assetId: raw.id,
-          owner: { username: raw.owner.username, name: raw.owner.name, profileImage: raw.owner.profileImage ?? undefined },
+          owner: {
+            id: raw.owner.id,
+            username: raw.owner.username,
+            name: raw.owner.name,
+            profileImage: raw.owner.profileImage ?? undefined
+          },
           imageUrl: raw.photoUrl ?? undefined,
           title: displayName || 'Unknown Whisky',
           caption: raw.caption ?? undefined,
           trustedPrice: raw.variant?.priceAggregate?.trustedPrice ? Number(raw.variant.priceAggregate.trustedPrice) : null,
           priceMethod: raw.variant?.priceAggregate?.method ?? 'HIDDEN',
           confidence: raw.variant?.priceAggregate?.confidence ?? 0,
+          isFollowing: followingIds.includes(raw.owner.id),
+          isOwnAsset: raw.owner.id === me.id,
           source: entry.source,
           createdAt: raw.createdAt.toISOString()
         };

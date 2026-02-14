@@ -9,7 +9,7 @@ describe('Feed card price format', () => {
   it('renders trusted price when available', () => {
     const card: FeedCard = {
       assetId: 'a1',
-      owner: { username: 'demo', name: 'Demo' },
+      owner: { id: 'u1', username: 'demo', name: 'Demo' },
       title: 'Macallan',
       trustedPrice: 123000,
       priceMethod: 'WEIGHTED_MEDIAN',
@@ -23,7 +23,7 @@ describe('Feed card price format', () => {
   it('hides price when trusted price is missing', () => {
     const card: FeedCard = {
       assetId: 'a2',
-      owner: { username: 'demo', name: 'Demo' },
+      owner: { id: 'u1', username: 'demo', name: 'Demo' },
       title: 'Yamazaki',
       priceMethod: 'HIDDEN',
       confidence: 0,

@@ -7,12 +7,14 @@ export const dynamic = 'force-dynamic';
 const fallbackItems: FeedCard[] = [
   {
     assetId: 'asset-1',
-    owner: { username: 'maltlover', name: 'Malt Lover' },
+    owner: { id: 'u1', username: 'maltlover', name: 'Malt Lover' },
     title: 'Macallan 18 Sherry Oak',
     caption: 'Vintage shelf update',
     trustedPrice: 368000,
     priceMethod: 'WEIGHTED_MEDIAN',
     confidence: 0.82,
+    isFollowing: false,
+    isOwnAsset: false,
     createdAt: '2026-02-12T02:00:00.000Z'
   }
 ];

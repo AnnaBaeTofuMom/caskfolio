@@ -20,10 +20,12 @@ export function LoginForm() {
     fetch(`${API_BASE}/auth/${provider}/callback?idToken=${encodeURIComponent(idToken)}`)
       .then(async (response) => {
         if (!response.ok) throw new Error('oauth callback failed');
-        const data = (await response.json()) as { token?: string; refreshToken?: string };
+        const data = (await response.json()) as { token?: string; refreshToken?: string; email?: string; name?: string };
         if (!data.token || !data.refreshToken) throw new Error('tokens missing');
         window.localStorage.setItem('caskfolio_access_token', data.token);
         window.localStorage.setItem('caskfolio_refresh_token', data.refreshToken);
+        if (data.email) window.localStorage.setItem('caskfolio_user_email', data.email);
+        if (data.name) window.localStorage.setItem('caskfolio_user_name', data.name);
         setStatus('OAuth login successful');
       })
       .catch(() => setStatus('OAuth login failed'));
@@ -44,7 +46,7 @@ export function LoginForm() {
       return;
     }
 
-    const data = (await response.json()) as { token?: string; refreshToken?: string };
+    const data = (await response.json()) as { token?: string; refreshToken?: string; email?: string; name?: string };
     if (!data.token || !data.refreshToken) {
       setStatus('Login succeeded but tokens missing');
       return;
@@ -52,6 +54,8 @@ export function LoginForm() {
 
     window.localStorage.setItem('caskfolio_access_token', data.token);
     window.localStorage.setItem('caskfolio_refresh_token', data.refreshToken);
+    window.localStorage.setItem('caskfolio_user_email', email);
+    if (data.name) window.localStorage.setItem('caskfolio_user_name', data.name);
     setStatus('Login successful');
   }
 
