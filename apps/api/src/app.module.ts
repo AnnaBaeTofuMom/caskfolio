@@ -9,11 +9,13 @@ import { PricingModule } from './modules/pricing/pricing.module.js';
 import { CrawlerModule } from './modules/crawler/crawler.module.js';
 import { AdminModule } from './modules/admin/admin.module.js';
 import { CatalogModule } from './modules/catalog/catalog.module.js';
+import { PrismaModule } from './prisma/prisma.module.js';
 
 @Module({
   imports: [
     ConfigModule.forRoot({ isGlobal: true }),
     ScheduleModule.forRoot(),
+    PrismaModule,
     AuthModule,
     CatalogModule,
     AssetsModule,

@@ -1,33 +1,25 @@
-import { Body, Controller, Get, Post } from '@nestjs/common';
+import { Body, Controller, Get, Headers, Post } from '@nestjs/common';
+import { PortfolioService } from './portfolio.service.js';
 
 @Controller('portfolio/me')
 export class PortfolioController {
+  constructor(private readonly portfolioService: PortfolioService) {}
+
   @Get('summary')
-  summary() {
-    return {
-      totalEstimatedValue: 8720000,
-      totalPurchaseValue: 7500000,
-      unrealizedPnL: 1220000,
-      assetCount: 18
-    };
+  summary(@Headers('x-user-email') userEmail = 'demo@caskfolio.com') {
+    return this.portfolioService.summary(userEmail);
   }
 
   @Get('chart')
-  chart() {
-    return [
-      { date: '2025-10-01', value: 7100000 },
-      { date: '2025-11-01', value: 7600000 },
-      { date: '2025-12-01', value: 8200000 },
-      { date: '2026-01-01', value: 8720000 }
-    ];
+  chart(@Headers('x-user-email') userEmail = 'demo@caskfolio.com') {
+    return this.portfolioService.chart(userEmail);
   }
 
   @Post('share-link')
-  createShareLink(@Body() body: { selectedAssetIds?: string[] }) {
-    return {
-      url: `https://example.com/u/demo`,
-      selectedAssetIds: body.selectedAssetIds ?? [],
-      visibility: 'PUBLIC'
-    };
+  createShareLink(
+    @Headers('x-user-email') userEmail = 'demo@caskfolio.com',
+    @Body() body: { selectedAssetIds?: string[] }
+  ) {
+    return this.portfolioService.createShareLink(userEmail, body.selectedAssetIds ?? []);
   }
 }
