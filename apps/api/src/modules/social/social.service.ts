@@ -210,7 +210,7 @@ export class SocialService {
       orderBy: { createdAt: 'asc' }
     });
 
-    return comments.map((comment) => ({
+    return comments.map((comment: (typeof comments)[number]) => ({
       id: comment.id,
       content: comment.content,
       createdAt: comment.createdAt.toISOString(),
@@ -220,7 +220,7 @@ export class SocialService {
         name: comment.user.name,
         profileImage: comment.user.profileImage ?? undefined
       },
-      replies: comment.replies.map((reply) => ({
+      replies: comment.replies.map((reply: (typeof comment.replies)[number]) => ({
         id: reply.id,
         content: reply.content,
         createdAt: reply.createdAt.toISOString(),
@@ -364,7 +364,7 @@ export class SocialService {
       take: 100
     });
 
-    return notifications.map((notification) => ({
+    return notifications.map((notification: (typeof notifications)[number]) => ({
       id: notification.id,
       type: notification.type,
       message: notification.message,
@@ -450,7 +450,7 @@ export class SocialService {
       })
     ]);
 
-    const userMap = new Map(users.map((user) => [user.id, user]));
+    const userMap = new Map<string, (typeof users)[number]>(users.map((user: (typeof users)[number]) => [user.id, user]));
     const totals = new Map<string, { totalValue: number; totalPurchase: number; assetCount: number }>();
 
     for (const asset of assets) {
@@ -517,11 +517,11 @@ export class SocialService {
       where: { username: { in: usernames, mode: 'insensitive' } }
     });
 
-    const targets = users.filter((user) => user.id !== actorId);
+    const targets = users.filter((user: (typeof users)[number]) => user.id !== actorId);
     if (!targets.length) return;
 
     await this.prisma.notification.createMany({
-      data: targets.map((target) => ({
+      data: targets.map((target: (typeof targets)[number]) => ({
         userId: target.id,
         actorId,
         assetId,

@@ -234,7 +234,9 @@ export class CrawlerService {
       orderBy: { _count: { variantId: 'desc' } },
       take: 100
     });
-    return topVariants.map((row) => row.variantId).filter(Boolean) as string[];
+    return topVariants
+      .map((row: (typeof topVariants)[number]) => row.variantId)
+      .filter((value): value is string => Boolean(value));
   }
 
   private sleep(ms: number) {
