@@ -3,6 +3,10 @@ import { FeedCard } from '@caskfolio/types';
 export function FeedCardItem({ card }: { card: FeedCard }) {
   return (
     <article className="card feed-card">
+      {card.imageUrl ? (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img className="feed-image" src={card.imageUrl} alt={card.title} />
+      ) : null}
       <div className="meta">
         <strong>@{card.owner.username}</strong>
         <span>{new Date(card.createdAt).toLocaleDateString()}</span>

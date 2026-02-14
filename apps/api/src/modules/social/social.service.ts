@@ -100,6 +100,7 @@ export class SocialService {
         return {
           assetId: raw.id,
           owner: { username: raw.owner.username, name: raw.owner.name, profileImage: raw.owner.profileImage ?? undefined },
+          imageUrl: raw.photoUrl ?? undefined,
           title: displayName || 'Unknown Whisky',
           caption: raw.caption ?? undefined,
           trustedPrice: raw.variant?.priceAggregate?.trustedPrice ? Number(raw.variant.priceAggregate.trustedPrice) : null,
@@ -149,6 +150,7 @@ export class SocialService {
           asset.customProductName ??
           [asset.variant?.product.brand.name, asset.variant?.product.name, asset.variant?.specialTag].filter(Boolean).join(' '),
         imageUrl: asset.photoUrl,
+        caption: asset.caption ?? undefined,
         visibility: asset.visibility,
         trustedPrice: asset.variant?.priceAggregate?.trustedPrice ? Number(asset.variant.priceAggregate.trustedPrice) : null
       }))

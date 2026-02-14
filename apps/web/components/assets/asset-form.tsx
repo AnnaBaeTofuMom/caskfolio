@@ -19,6 +19,10 @@ export function AssetForm() {
   const [customProductName, setCustomProductName] = useState('');
   const [purchasePrice, setPurchasePrice] = useState('');
   const [purchaseDate, setPurchaseDate] = useState('');
+  const [boxAvailable, setBoxAvailable] = useState(false);
+  const [photoUrl, setPhotoUrl] = useState('');
+  const [caption, setCaption] = useState('');
+  const [visibility, setVisibility] = useState<'PRIVATE' | 'PUBLIC'>('PUBLIC');
   const [message, setMessage] = useState('');
 
   useEffect(() => {
@@ -72,8 +76,11 @@ export function AssetForm() {
       purchasePrice: Number(purchasePrice),
       purchaseDate,
       bottleCondition: 'SEALED',
-      boxAvailable: true,
-      storageLocation: 'HOME'
+      boxAvailable,
+      storageLocation: 'HOME',
+      photoUrl: photoUrl || undefined,
+      caption: caption || undefined,
+      visibility
     };
 
     const res = await fetch(`${API_BASE}/assets`, {
@@ -95,6 +102,10 @@ export function AssetForm() {
     setCustomProductName('');
     setPurchasePrice('');
     setPurchaseDate('');
+    setBoxAvailable(false);
+    setPhotoUrl('');
+    setCaption('');
+    setVisibility('PUBLIC');
   }
 
   return (
@@ -152,6 +163,29 @@ export function AssetForm() {
       <label>
         Purchase Date
         <input type="date" value={purchaseDate} onChange={(e) => setPurchaseDate(e.target.value)} required />
+      </label>
+
+      <label className="inline-check">
+        <input type="checkbox" checked={boxAvailable} onChange={(e) => setBoxAvailable(e.target.checked)} />
+        Box available
+      </label>
+
+      <label>
+        Photo URL
+        <input value={photoUrl} onChange={(e) => setPhotoUrl(e.target.value)} placeholder="https://..." />
+      </label>
+
+      <label>
+        Caption
+        <input value={caption} onChange={(e) => setCaption(e.target.value)} placeholder="Write a short note for feed" />
+      </label>
+
+      <label>
+        Visibility
+        <select value={visibility} onChange={(e) => setVisibility(e.target.value as 'PRIVATE' | 'PUBLIC')}>
+          <option value="PUBLIC">Public (show in feed)</option>
+          <option value="PRIVATE">Private</option>
+        </select>
       </label>
 
       <button className="btn primary" type="submit">
