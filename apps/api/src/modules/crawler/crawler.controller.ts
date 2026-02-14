@@ -1,4 +1,4 @@
-import { Controller, Post, UseGuards } from '@nestjs/common';
+import { Body, Controller, Post, UseGuards } from '@nestjs/common';
 import { CrawlerService } from './crawler.service.js';
 import { JwtAccessGuard } from '../../security/jwt-access.guard.js';
 import { Roles } from '../../security/roles.decorator.js';
@@ -11,7 +11,7 @@ export class CrawlerController {
   constructor(private readonly crawlerService: CrawlerService) {}
 
   @Post('run-now')
-  runNow() {
-    return this.crawlerService.crawlDailyTop100();
+  runNow(@Body() body?: { variantIds?: string[] }) {
+    return this.crawlerService.crawlDailyTop100(body?.variantIds);
   }
 }

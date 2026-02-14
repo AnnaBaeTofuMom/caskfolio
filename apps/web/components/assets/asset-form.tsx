@@ -1,19 +1,24 @@
 'use client';
 
-import { FormEvent, useEffect, useMemo, useState } from 'react';
+import { ChangeEvent, FormEvent, useEffect, useMemo, useRef, useState } from 'react';
+import { useRouter } from 'next/navigation';
+import { readAuthContext } from '../../lib/auth-state';
+import { optimizeImageFile } from '../../lib/image-optimize';
 
 type Brand = { id: string; name: string };
 type Product = { id: string; name: string; brandId: string };
 type Variant = { id: string; releaseYear: number | null; bottleSize: number | null; region: string | null; specialTag: string | null };
 
-const API_BASE = process.env.NEXT_PUBLIC_API_BASE_URL ?? 'http://localhost:4000/api';
+const API_BASE = process.env.NEXT_PUBLIC_API_BASE_URL ?? '/api-proxy';
 
 export function AssetForm() {
+  const router = useRouter();
   const [brands, setBrands] = useState<Brand[]>([]);
   const [products, setProducts] = useState<Product[]>([]);
   const [variants, setVariants] = useState<Variant[]>([]);
-
+  const [brandQuery, setBrandQuery] = useState('');
   const [brandId, setBrandId] = useState('');
+  const [showBrandMenu, setShowBrandMenu] = useState(false);
   const [productId, setProductId] = useState('');
   const [variantId, setVariantId] = useState('');
   const [customProductName, setCustomProductName] = useState('');
@@ -24,6 +29,31 @@ export function AssetForm() {
   const [caption, setCaption] = useState('');
   const [visibility, setVisibility] = useState<'PRIVATE' | 'PUBLIC'>('PUBLIC');
   const [message, setMessage] = useState('');
+  const [errors, setErrors] = useState<{
+    variantOrName?: string;
+    purchasePrice?: string;
+    purchaseDate?: string;
+  }>({});
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [userEmail, setUserEmail] = useState('');
+  const variantSelectRef = useRef<HTMLSelectElement>(null);
+  const customProductNameRef = useRef<HTMLInputElement>(null);
+  const purchasePriceRef = useRef<HTMLInputElement>(null);
+  const purchaseDateRef = useRef<HTMLInputElement>(null);
+  const brandBlurTimer = useRef<number | null>(null);
+
+  const selectedBrandName = useMemo(() => brands.find((brand) => brand.id === brandId)?.name ?? '', [brandId, brands]);
+  const filteredBrands = useMemo(() => {
+    const q = brandQuery.trim().toLowerCase();
+    if (!q) return brands;
+    return brands.filter((brand) => brand.name.toLowerCase().includes(q));
+  }, [brandQuery, brands]);
+
+  useEffect(() => {
+    const auth = readAuthContext(window.localStorage);
+    setIsAuthenticated(Boolean(auth?.token) && Boolean(auth?.email));
+    setUserEmail(auth?.email ?? '');
+  }, []);
 
   useEffect(() => {
     fetch(`${API_BASE}/catalog/brands`)
@@ -36,6 +66,8 @@ export function AssetForm() {
     if (!brandId) {
       setProducts([]);
       setProductId('');
+      setVariants([]);
+      setVariantId('');
       return;
     }
 
@@ -58,22 +90,44 @@ export function AssetForm() {
       .catch(() => setVariants([]));
   }, [productId]);
 
-  const selectedVariantLabel = useMemo(() => {
-    const selected = variants.find((v) => v.id === variantId);
-    if (!selected) return '';
-    return [selected.releaseYear, selected.bottleSize ? `${selected.bottleSize}ml` : null, selected.region, selected.specialTag]
-      .filter(Boolean)
-      .join(' · ');
-  }, [variantId, variants]);
-
   async function onSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    setErrors({});
+    if (!isAuthenticated) {
+      setMessage('로그인 후 자산 등록이 가능합니다.');
+      return;
+    }
     setMessage('Saving...');
+
+    const resolvedName = customProductName.trim();
+    const parsedPrice = Number(purchasePrice);
+
+    if (!Number.isFinite(parsedPrice) || parsedPrice <= 0) {
+      setMessage('');
+      setErrors({ purchasePrice: '구매가는 0보다 커야 합니다.' });
+      purchasePriceRef.current?.focus();
+      return;
+    }
+
+    if (!purchaseDate) {
+      setMessage('');
+      setErrors({ purchaseDate: '구매일을 입력해주세요.' });
+      purchaseDateRef.current?.focus();
+      return;
+    }
+
+    if (!variantId && !resolvedName) {
+      setMessage('');
+      setErrors({ variantOrName: '버전을 선택하거나 Product Name을 입력해주세요.' });
+      if (productId) variantSelectRef.current?.focus();
+      else customProductNameRef.current?.focus();
+      return;
+    }
 
     const body = {
       variantId: variantId || undefined,
-      customProductName: customProductName || undefined,
-      purchasePrice: Number(purchasePrice),
+      customProductName: resolvedName || undefined,
+      purchasePrice: parsedPrice,
       purchaseDate,
       bottleCondition: 'SEALED',
       boxAvailable,
@@ -83,49 +137,113 @@ export function AssetForm() {
       visibility
     };
 
-    const res = await fetch(`${API_BASE}/assets`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'x-user-email': 'demo@caskfolio.com'
-      },
-      body: JSON.stringify(body)
-    });
+    try {
+      const res = await fetch(`${API_BASE}/assets`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-user-email': userEmail
+        },
+        body: JSON.stringify(body)
+      });
 
-    if (!res.ok) {
-      setMessage('Failed to register asset');
-      return;
+      if (!res.ok) {
+        let reason = 'Failed to register asset';
+        try {
+          const errorData = (await res.json()) as { message?: string | string[] };
+          if (Array.isArray(errorData.message)) reason = errorData.message.join(', ');
+          else if (typeof errorData.message === 'string') reason = errorData.message;
+        } catch {
+          // no-op: keep generic fallback
+        }
+        setMessage(reason);
+        return;
+      }
+
+      setMessage('Asset registered');
+      setBrandQuery('');
+      setBrandId('');
+      setProductId('');
+      setVariantId('');
+      setCustomProductName('');
+      setPurchasePrice('');
+      setPurchaseDate('');
+      setBoxAvailable(false);
+      setPhotoUrl('');
+      setCaption('');
+      setVisibility('PUBLIC');
+      setErrors({});
+      router.push('/portfolio');
+    } catch {
+      setMessage('Cannot connect to API server');
     }
+  }
 
-    setMessage('Asset registered');
-    setVariantId('');
-    setCustomProductName('');
-    setPurchasePrice('');
-    setPurchaseDate('');
-    setBoxAvailable(false);
-    setPhotoUrl('');
-    setCaption('');
-    setVisibility('PUBLIC');
+  function onPhotoFileChange(event: ChangeEvent<HTMLInputElement>) {
+    const file = event.target.files?.[0];
+    if (!file) return;
+    optimizeImageFile(file)
+      .then((optimized) => setPhotoUrl(optimized))
+      .catch(() => setMessage('Failed to process image'));
   }
 
   return (
     <form suppressHydrationWarning className="card form-grid" onSubmit={onSubmit}>
+      {!isAuthenticated ? (
+        <small>Please sign in first. You can still fill this form, but submit is blocked until login.</small>
+      ) : null}
       <label>
-        Brand
-        <select suppressHydrationWarning value={brandId} onChange={(e) => setBrandId(e.target.value)}>
-          <option value="">Select brand</option>
-          {brands.map((brand) => (
-            <option key={brand.id} value={brand.id}>
-              {brand.name}
-            </option>
-          ))}
-        </select>
+        Brand (search and select)
+        <div className="brand-search">
+          <input
+            suppressHydrationWarning
+            value={brandQuery}
+            onFocus={() => {
+              if (brandBlurTimer.current) window.clearTimeout(brandBlurTimer.current);
+              setShowBrandMenu(true);
+            }}
+            onBlur={() => {
+              brandBlurTimer.current = window.setTimeout(() => setShowBrandMenu(false), 120);
+            }}
+            onChange={(e) => {
+              const value = e.target.value;
+              setBrandQuery(value);
+              setBrandId('');
+              setProductId('');
+              setVariantId('');
+            }}
+            placeholder="Type brand name..."
+          />
+          {showBrandMenu ? (
+            <div className="brand-menu">
+              {filteredBrands.length ? (
+                filteredBrands.map((brand) => (
+                  <button
+                    key={brand.id}
+                    type="button"
+                    className="brand-option"
+                    onMouseDown={(event) => event.preventDefault()}
+                    onClick={() => {
+                      setBrandId(brand.id);
+                      setBrandQuery(brand.name);
+                      setShowBrandMenu(false);
+                    }}
+                  >
+                    {brand.name}
+                  </button>
+                ))
+              ) : (
+                <p className="brand-empty">No matching brands</p>
+              )}
+            </div>
+          ) : null}
+        </div>
       </label>
 
       <label>
         Product Line
         <select suppressHydrationWarning value={productId} onChange={(e) => setProductId(e.target.value)} disabled={!brandId}>
-          <option value="">Select product</option>
+          <option value="">Select product line</option>
           {products.map((product) => (
             <option key={product.id} value={product.id}>
               {product.name}
@@ -135,9 +253,9 @@ export function AssetForm() {
       </label>
 
       <label>
-        Variant
-        <select suppressHydrationWarning value={variantId} onChange={(e) => setVariantId(e.target.value)} disabled={!productId}>
-          <option value="">Select variant</option>
+        Version
+        <select suppressHydrationWarning ref={variantSelectRef} value={variantId} onChange={(e) => setVariantId(e.target.value)} disabled={!productId}>
+          <option value="">Select version</option>
           {variants.map((variant) => (
             <option key={variant.id} value={variant.id}>
               {[variant.releaseYear, variant.bottleSize ? `${variant.bottleSize}ml` : null, variant.region, variant.specialTag]
@@ -146,23 +264,39 @@ export function AssetForm() {
             </option>
           ))}
         </select>
+        {errors.variantOrName ? <small className="field-error">{errors.variantOrName}</small> : null}
       </label>
 
-      {selectedVariantLabel ? <small>{selectedVariantLabel}</small> : null}
-
       <label>
-        Custom Product Name
-        <input suppressHydrationWarning value={customProductName} onChange={(e) => setCustomProductName(e.target.value)} placeholder="If not found" />
+        Product Name (optional)
+        <input
+          suppressHydrationWarning
+          ref={customProductNameRef}
+          value={customProductName}
+          onChange={(e) => setCustomProductName(e.target.value)}
+          placeholder={selectedBrandName ? `${selectedBrandName} 12 Years` : 'e.g. Macallan 18 Sherry Oak'}
+        />
+        {errors.variantOrName ? <small className="field-error">{errors.variantOrName}</small> : null}
       </label>
 
       <label>
         Purchase Price (KRW)
-        <input suppressHydrationWarning type="number" value={purchasePrice} onChange={(e) => setPurchasePrice(e.target.value)} placeholder="350000" required />
+        <input
+          suppressHydrationWarning
+          ref={purchasePriceRef}
+          type="number"
+          value={purchasePrice}
+          onChange={(e) => setPurchasePrice(e.target.value)}
+          placeholder="350000"
+          required
+        />
+        {errors.purchasePrice ? <small className="field-error">{errors.purchasePrice}</small> : null}
       </label>
 
       <label>
         Purchase Date
-        <input suppressHydrationWarning type="date" value={purchaseDate} onChange={(e) => setPurchaseDate(e.target.value)} required />
+        <input suppressHydrationWarning ref={purchaseDateRef} type="date" value={purchaseDate} onChange={(e) => setPurchaseDate(e.target.value)} required />
+        {errors.purchaseDate ? <small className="field-error">{errors.purchaseDate}</small> : null}
       </label>
 
       <label className="inline-check">
@@ -174,18 +308,33 @@ export function AssetForm() {
         Photo URL
         <input suppressHydrationWarning value={photoUrl} onChange={(e) => setPhotoUrl(e.target.value)} placeholder="https://..." />
       </label>
+      <label>
+        Or Upload Photo
+        <input suppressHydrationWarning type="file" accept="image/*" onChange={onPhotoFileChange} />
+      </label>
+      {photoUrl ? (
+        <div>
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img className="feed-image" src={photoUrl} alt="Preview" />
+          <button className="btn ghost" type="button" onClick={() => setPhotoUrl('')}>
+            Remove Photo
+          </button>
+        </div>
+      ) : null}
 
       <label>
         Caption
         <input suppressHydrationWarning value={caption} onChange={(e) => setCaption(e.target.value)} placeholder="Write a short note for feed" />
       </label>
 
-      <label>
-        Visibility
-        <select suppressHydrationWarning value={visibility} onChange={(e) => setVisibility(e.target.value as 'PRIVATE' | 'PUBLIC')}>
-          <option value="PUBLIC">Public (show in feed)</option>
-          <option value="PRIVATE">Private</option>
-        </select>
+      <label className="visibility-toggle">
+        <span>Public in feed</span>
+        <input
+          suppressHydrationWarning
+          type="checkbox"
+          checked={visibility === 'PUBLIC'}
+          onChange={(e) => setVisibility(e.target.checked ? 'PUBLIC' : 'PRIVATE')}
+        />
       </label>
 
       <button className="btn primary" type="submit">

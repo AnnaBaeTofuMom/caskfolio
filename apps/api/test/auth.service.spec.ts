@@ -59,6 +59,34 @@ describe('AuthService', () => {
     expect(prisma.authSession.create).toHaveBeenCalledTimes(1);
   });
 
+  it('does not create assets on signup', async () => {
+    const prisma: any = {
+      user: {
+        findUnique: vi.fn().mockResolvedValue(null),
+        create: vi.fn().mockResolvedValue({
+          id: 'u-signup',
+          email: 'new@caskfolio.com',
+          name: 'New User',
+          role: 'USER'
+        })
+      },
+      whiskyAsset: {
+        create: vi.fn(),
+        createMany: vi.fn()
+      },
+      authSession: {
+        create: vi.fn().mockResolvedValue({ id: 's-signup' })
+      }
+    };
+
+    const service = new AuthService(prisma, jwt);
+    await service.signup('new@caskfolio.com', 'pass1234', 'New User');
+
+    expect(prisma.user.create).toHaveBeenCalledTimes(1);
+    expect(prisma.whiskyAsset.create).not.toHaveBeenCalled();
+    expect(prisma.whiskyAsset.createMany).not.toHaveBeenCalled();
+  });
+
   it('refreshes token when refresh session is valid', async () => {
     const prisma: any = {
       authSession: {

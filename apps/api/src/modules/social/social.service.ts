@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service.js';
 import { SocialFeedService } from './social-feed.service.js';
 
@@ -40,57 +40,53 @@ export class SocialService {
     return { followed: false, userId };
   }
 
-  async feed(userEmail: string, cursor?: string, limit = 10) {
-    const me = await this.ensureUser(userEmail);
-    const following = await this.prisma.follow.findMany({
-      where: { followerId: me.id },
-      select: { followingId: true }
-    });
+  async feed(userEmail?: string, cursor?: string, limit = 10) {
+    const me = userEmail ? await this.ensureUser(userEmail) : null;
+    const safeLimit = Math.min(Math.max(Number(limit) || 20, 1), 50);
+    const cursorFilter = this.buildFeedCursorFilter(cursor);
+    const following = me
+      ? await this.prisma.follow.findMany({
+          where: { followerId: me.id },
+          select: { followingId: true }
+        })
+      : [];
     const followingIds = following.map((f: { followingId: string }) => f.followingId);
-
-    const [followingAssets, recommendedAssets] = await Promise.all([
-      followingIds.length
-        ? this.prisma.whiskyAsset.findMany({
-            where: {
-              visibility: 'PUBLIC',
-              userId: { in: followingIds },
-              ...(cursor ? { id: { lt: cursor } } : {})
-            },
-            include: {
-              owner: true,
-              variant: { include: { product: { include: { brand: true } }, priceAggregate: true } }
-            },
-            orderBy: { createdAt: 'desc' },
-            take: limit * 2
-          })
-        : Promise.resolve([]),
-      this.prisma.whiskyAsset.findMany({
-        where: {
-          visibility: 'PUBLIC',
-          userId: { not: me.id, notIn: followingIds },
-          ...(cursor ? { id: { lt: cursor } } : {})
+    const rawAssets = await this.prisma.whiskyAsset.findMany({
+      where: {
+        visibility: 'PUBLIC',
+        ...(cursorFilter ?? {})
+      },
+      include: {
+        owner: true,
+        variant: { include: { product: { include: { brand: true } }, priceAggregate: true } },
+        ...(me ? { likes: { where: { userId: me.id }, select: { id: true } } } : {}),
+        comments: {
+          where: { parentCommentId: null },
+          orderBy: { createdAt: 'desc' },
+          take: 3,
+          include: {
+            user: true,
+            replies: {
+              orderBy: { createdAt: 'asc' },
+              take: 3,
+              include: { user: true }
+            }
+          }
         },
-        include: {
-          owner: true,
-          variant: { include: { product: { include: { brand: true } }, priceAggregate: true } }
+        poll: {
+          include: { votes: true }
         },
-        orderBy: { createdAt: 'desc' },
-        take: limit * 2
-      })
-    ]);
+        _count: { select: { likes: true, comments: true } }
+      },
+      orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
+      take: safeLimit + 1
+    });
 
-    const mixed = this.socialFeedService.mix<FeedItem>(
-      followingAssets.map((a: { id: string }) => ({ id: a.id })),
-      recommendedAssets.map((a: { id: string }) => ({ id: a.id })),
-      limit
-    );
+    const hasNextPage = rawAssets.length > safeLimit;
+    const pageAssets = hasNextPage ? rawAssets.slice(0, safeLimit) : rawAssets;
 
-    const followingMap = new Map(followingAssets.map((a: { id: string }) => [a.id, a]));
-    const recommendedMap = new Map(recommendedAssets.map((a: { id: string }) => [a.id, a]));
-
-    const items = mixed.items
-      .map((entry) => {
-        const raw: any = entry.source === 'FOLLOWING' ? followingMap.get(entry.id) : recommendedMap.get(entry.id);
+    const items = pageAssets
+      .map((raw: any) => {
         if (!raw) return null;
 
         const displayName =
@@ -99,6 +95,11 @@ export class SocialService {
         const purchasePrice = Number(raw.purchasePrice ?? 0);
         const trustedPrice = raw.variant?.priceAggregate?.trustedPrice ? Number(raw.variant.priceAggregate.trustedPrice) : null;
         const currentValue = trustedPrice ?? purchasePrice;
+        const pollVotes = raw.poll?.votes ?? [];
+        const pollOptions: string[] = raw.poll?.options ?? [];
+        const voteCounts = pollOptions.map((_: string, index: number) => pollVotes.filter((vote: { optionIndex: number }) => vote.optionIndex === index).length);
+        const myVote = me ? pollVotes.find((vote: { userId: string }) => vote.userId === me.id) : undefined;
+        const recentComments = [...(raw.comments ?? [])].reverse();
 
         return {
           assetId: raw.id,
@@ -109,6 +110,7 @@ export class SocialService {
             profileImage: raw.owner.profileImage ?? undefined
           },
           imageUrl: raw.photoUrl ?? undefined,
+          imageUrls: raw.photoUrls?.length ? raw.photoUrls : raw.photoUrl ? [raw.photoUrl] : undefined,
           title: displayName || 'Unknown Whisky',
           productLine: raw.variant?.product?.name ?? undefined,
           hasBox: Boolean(raw.boxAvailable),
@@ -118,20 +120,274 @@ export class SocialService {
           trustedPrice,
           priceMethod: raw.variant?.priceAggregate?.method ?? 'HIDDEN',
           confidence: raw.variant?.priceAggregate?.confidence ?? 0,
-          isFollowing: followingIds.includes(raw.owner.id),
-          isOwnAsset: raw.owner.id === me.id,
-          source: entry.source,
-          createdAt: raw.createdAt.toISOString()
+          isFollowing: me ? followingIds.includes(raw.owner.id) : false,
+          isOwnAsset: me ? raw.owner.id === me.id : false,
+          createdAt: raw.createdAt.toISOString(),
+          likeCount: raw._count?.likes ?? 0,
+          commentCount: raw._count?.comments ?? 0,
+          likedByMe: (raw.likes?.length ?? 0) > 0,
+          comments: recentComments.map((comment: any) => ({
+            id: comment.id,
+            content: comment.content,
+            createdAt: comment.createdAt.toISOString(),
+            user: {
+              id: comment.user.id,
+              username: comment.user.username,
+              name: comment.user.name,
+              profileImage: comment.user.profileImage ?? undefined
+            },
+            replies: (comment.replies ?? []).map((reply: any) => ({
+              id: reply.id,
+              content: reply.content,
+              createdAt: reply.createdAt.toISOString(),
+              user: {
+                id: reply.user.id,
+                username: reply.user.username,
+                name: reply.user.name,
+                profileImage: reply.user.profileImage ?? undefined
+              }
+            }))
+          })),
+          poll: raw.poll
+            ? {
+                question: raw.poll.question,
+                options: pollOptions,
+                voteCounts,
+                totalVotes: pollVotes.length,
+                votedOptionIndex: myVote?.optionIndex
+              }
+            : undefined
         };
       })
       .filter(Boolean);
 
     return {
       cursor,
-      mix: { following: 0.7, recommended: 0.3 },
-      nextCursor: items.length ? items[items.length - 1]!.assetId : null,
+      nextCursor:
+        hasNextPage && pageAssets.length
+          ? this.encodeFeedCursor(pageAssets[pageAssets.length - 1]!.createdAt, pageAssets[pageAssets.length - 1]!.id)
+          : null,
       items
     };
+  }
+
+  async likePost(userEmail: string, assetId: string) {
+    const me = await this.ensureUser(userEmail);
+    await this.ensureVisibleAsset(assetId);
+
+    await this.prisma.feedLike.upsert({
+      where: { assetId_userId: { assetId, userId: me.id } },
+      create: { assetId, userId: me.id },
+      update: {}
+    });
+
+    const count = await this.prisma.feedLike.count({ where: { assetId } });
+    return { liked: true, likeCount: count };
+  }
+
+  async unlikePost(userEmail: string, assetId: string) {
+    const me = await this.ensureUser(userEmail);
+    await this.prisma.feedLike.deleteMany({
+      where: { assetId, userId: me.id }
+    });
+    const count = await this.prisma.feedLike.count({ where: { assetId } });
+    return { liked: false, likeCount: count };
+  }
+
+  async comments(userEmail: string, assetId: string) {
+    await this.ensureUser(userEmail);
+    await this.ensureVisibleAsset(assetId);
+
+    const comments = await this.prisma.feedComment.findMany({
+      where: { assetId, parentCommentId: null },
+      include: {
+        user: true,
+        replies: {
+          include: { user: true },
+          orderBy: { createdAt: 'asc' }
+        }
+      },
+      orderBy: { createdAt: 'asc' }
+    });
+
+    return comments.map((comment) => ({
+      id: comment.id,
+      content: comment.content,
+      createdAt: comment.createdAt.toISOString(),
+      user: {
+        id: comment.user.id,
+        username: comment.user.username,
+        name: comment.user.name,
+        profileImage: comment.user.profileImage ?? undefined
+      },
+      replies: comment.replies.map((reply) => ({
+        id: reply.id,
+        content: reply.content,
+        createdAt: reply.createdAt.toISOString(),
+        user: {
+          id: reply.user.id,
+          username: reply.user.username,
+          name: reply.user.name,
+          profileImage: reply.user.profileImage ?? undefined
+        }
+      }))
+    }));
+  }
+
+  async addComment(userEmail: string, assetId: string, content: string, parentCommentId?: string) {
+    const me = await this.ensureUser(userEmail);
+    if (!content.trim()) throw new BadRequestException('content is required');
+    await this.ensureVisibleAsset(assetId);
+
+    if (parentCommentId) {
+      const parent = await this.prisma.feedComment.findFirst({
+        where: { id: parentCommentId, assetId }
+      });
+      if (!parent) throw new NotFoundException('parent comment not found');
+    }
+
+    const comment = await this.prisma.feedComment.create({
+      data: {
+        assetId,
+        userId: me.id,
+        content: content.trim(),
+        parentCommentId: parentCommentId ?? null
+      },
+      include: { user: true }
+    });
+
+    await this.createMentionNotifications(me.id, assetId, content);
+
+    return {
+      id: comment.id,
+      content: comment.content,
+      createdAt: comment.createdAt.toISOString(),
+      user: {
+        id: comment.user.id,
+        username: comment.user.username,
+        name: comment.user.name,
+        profileImage: comment.user.profileImage ?? undefined
+      }
+    };
+  }
+
+  async updatePost(userEmail: string, assetId: string, title: string, body: string) {
+    const me = await this.ensureUser(userEmail);
+    const existing = await this.prisma.whiskyAsset.findFirst({
+      where: { id: assetId, userId: me.id }
+    });
+    if (!existing) throw new NotFoundException('post not found');
+
+    const updated = await this.prisma.whiskyAsset.update({
+      where: { id: assetId },
+      data: {
+        customProductName: title.trim() || existing.customProductName,
+        caption: body.trim(),
+        visibility: 'PUBLIC'
+      }
+    });
+
+    await this.createMentionNotifications(me.id, assetId, `${title}\n${body}`);
+
+    return { id: updated.id, updated: true };
+  }
+
+  async deletePost(userEmail: string, assetId: string) {
+    const me = await this.ensureUser(userEmail);
+    const existing = await this.prisma.whiskyAsset.findFirst({
+      where: { id: assetId, userId: me.id }
+    });
+    if (!existing) throw new NotFoundException('post not found');
+
+    await this.prisma.whiskyAsset.update({
+      where: { id: assetId },
+      data: {
+        visibility: 'PRIVATE'
+      }
+    });
+
+    return { deleted: true, assetId };
+  }
+
+  async upsertPoll(userEmail: string, assetId: string, question: string, options: string[]) {
+    const me = await this.ensureUser(userEmail);
+    const asset = await this.prisma.whiskyAsset.findFirst({ where: { id: assetId, userId: me.id } });
+    if (!asset) throw new NotFoundException('post not found');
+
+    const trimmedQuestion = question.trim();
+    const trimmedOptions = options.map((option) => option.trim()).filter(Boolean);
+    if (!trimmedQuestion || trimmedOptions.length < 2) {
+      throw new BadRequestException('poll question and at least 2 options are required');
+    }
+
+    const poll = await this.prisma.feedPoll.upsert({
+      where: { assetId },
+      create: {
+        assetId,
+        question: trimmedQuestion,
+        options: trimmedOptions
+      },
+      update: {
+        question: trimmedQuestion,
+        options: trimmedOptions
+      }
+    });
+
+    return { id: poll.id, assetId: poll.assetId };
+  }
+
+  async votePoll(userEmail: string, assetId: string, optionIndex: number) {
+    const me = await this.ensureUser(userEmail);
+    const poll = await this.prisma.feedPoll.findUnique({ where: { assetId } });
+    if (!poll) throw new NotFoundException('poll not found');
+    if (optionIndex < 0 || optionIndex >= poll.options.length) {
+      throw new BadRequestException('invalid optionIndex');
+    }
+
+    await this.prisma.feedPollVote.upsert({
+      where: { pollId_userId: { pollId: poll.id, userId: me.id } },
+      create: { pollId: poll.id, userId: me.id, optionIndex },
+      update: { optionIndex }
+    });
+
+    return { voted: true };
+  }
+
+  async notifications(userEmail: string) {
+    const me = await this.ensureUser(userEmail);
+    const notifications = await this.prisma.notification.findMany({
+      where: { userId: me.id },
+      include: {
+        actor: true
+      },
+      orderBy: { createdAt: 'desc' },
+      take: 100
+    });
+
+    return notifications.map((notification) => ({
+      id: notification.id,
+      type: notification.type,
+      message: notification.message,
+      assetId: notification.assetId ?? undefined,
+      createdAt: notification.createdAt.toISOString(),
+      read: Boolean(notification.readAt),
+      actor: notification.actor
+        ? {
+            id: notification.actor.id,
+            username: notification.actor.username,
+            name: notification.actor.name
+          }
+        : undefined
+    }));
+  }
+
+  async markNotificationRead(userEmail: string, notificationId: string) {
+    const me = await this.ensureUser(userEmail);
+    await this.prisma.notification.updateMany({
+      where: { id: notificationId, userId: me.id },
+      data: { readAt: new Date() }
+    });
+    return { ok: true };
   }
 
   async publicProfile(username: string) {
@@ -157,6 +413,9 @@ export class SocialService {
 
     return {
       username: user.username,
+      name: user.name,
+      profileImage: user.profileImage ?? null,
+      joinedAt: user.createdAt.toISOString(),
       summary: { assetCount: assets.length, publicAssets: assets.length },
       assets: assets.map((asset: (typeof assets)[number]) => ({
         assetId: asset.id,
@@ -165,10 +424,60 @@ export class SocialService {
           [asset.variant?.product.brand.name, asset.variant?.product.name, asset.variant?.specialTag].filter(Boolean).join(' '),
         imageUrl: asset.photoUrl,
         caption: asset.caption ?? undefined,
+        productLine: asset.variant?.product?.name ?? undefined,
+        hasBox: asset.boxAvailable,
+        purchasePrice: Number(asset.purchasePrice),
+        currentValue: asset.variant?.priceAggregate?.trustedPrice
+          ? Number(asset.variant.priceAggregate.trustedPrice)
+          : Number(asset.purchasePrice),
         visibility: asset.visibility,
         trustedPrice: asset.variant?.priceAggregate?.trustedPrice ? Number(asset.variant.priceAggregate.trustedPrice) : null
       }))
     };
+  }
+
+  async topCollectors(limit = 10) {
+    const [assets, users] = await Promise.all([
+      this.prisma.whiskyAsset.findMany({
+        select: {
+          userId: true,
+          purchasePrice: true,
+          variant: { select: { priceAggregate: { select: { trustedPrice: true } } } }
+        }
+      }),
+      this.prisma.user.findMany({
+        select: { id: true, username: true, name: true, profileImage: true }
+      })
+    ]);
+
+    const userMap = new Map(users.map((user) => [user.id, user]));
+    const totals = new Map<string, { totalValue: number; totalPurchase: number; assetCount: number }>();
+
+    for (const asset of assets) {
+      const trusted = asset.variant?.priceAggregate?.trustedPrice ? Number(asset.variant.priceAggregate.trustedPrice) : null;
+      const value = trusted ?? Number(asset.purchasePrice);
+      const prev = totals.get(asset.userId) ?? { totalValue: 0, totalPurchase: 0, assetCount: 0 };
+      totals.set(asset.userId, {
+        totalValue: prev.totalValue + value,
+        totalPurchase: prev.totalPurchase + Number(asset.purchasePrice),
+        assetCount: prev.assetCount + 1
+      });
+    }
+
+    return [...totals.entries()]
+      .sort((a, b) => b[1].totalValue - a[1].totalValue)
+      .slice(0, Math.max(1, limit))
+      .map(([userId, row], index) => ({
+        rank: index + 1,
+        userId,
+        username: userMap.get(userId)?.username ?? 'unknown',
+        name: userMap.get(userId)?.name ?? 'Unknown',
+        profileImage: userMap.get(userId)?.profileImage ?? null,
+        totalValue: row.totalValue,
+        totalPurchase: row.totalPurchase,
+        gainRate: row.totalPurchase > 0 ? ((row.totalValue - row.totalPurchase) / row.totalPurchase) * 100 : 0,
+        assetCount: row.assetCount
+      }));
   }
 
   private async ensureUser(email: string) {
@@ -185,5 +494,61 @@ export class SocialService {
         name: usernameBase || 'User'
       }
     });
+  }
+
+  private async ensureVisibleAsset(assetId: string) {
+    const asset = await this.prisma.whiskyAsset.findFirst({
+      where: { id: assetId, visibility: 'PUBLIC' }
+    });
+    if (!asset) throw new NotFoundException('feed post not found');
+    return asset;
+  }
+
+  private extractMentionUsernames(text: string) {
+    const matches = text.match(/@([a-zA-Z0-9_]+)/g) ?? [];
+    return [...new Set(matches.map((match) => match.slice(1).toLowerCase()))];
+  }
+
+  private async createMentionNotifications(actorId: string, assetId: string, text: string) {
+    const usernames = this.extractMentionUsernames(text);
+    if (!usernames.length) return;
+
+    const users = await this.prisma.user.findMany({
+      where: { username: { in: usernames, mode: 'insensitive' } }
+    });
+
+    const targets = users.filter((user) => user.id !== actorId);
+    if (!targets.length) return;
+
+    await this.prisma.notification.createMany({
+      data: targets.map((target) => ({
+        userId: target.id,
+        actorId,
+        assetId,
+        type: 'MENTION',
+        message: `@${target.username} mentioned in a feed post`
+      }))
+    });
+  }
+
+  private encodeFeedCursor(createdAt: Date, id: string) {
+    return `${createdAt.toISOString()}__${id}`;
+  }
+
+  private buildFeedCursorFilter(cursor?: string) {
+    if (!cursor) return undefined;
+    const [createdAtRaw, id] = cursor.split('__');
+    if (!createdAtRaw || !id) return undefined;
+    const createdAt = new Date(createdAtRaw);
+    if (Number.isNaN(createdAt.getTime())) return undefined;
+
+    return {
+      OR: [
+        { createdAt: { lt: createdAt } },
+        {
+          AND: [{ createdAt }, { id: { lt: id } }]
+        }
+      ]
+    };
   }
 }

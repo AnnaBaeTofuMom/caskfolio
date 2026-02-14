@@ -10,7 +10,8 @@ interface CreateAssetInput {
   boxAvailable?: boolean;
   labelCondition?: string;
   storageLocation?: 'HOME' | 'BAR' | 'VAULT';
-  photoUrl?: string;
+  photoUrl?: string | null;
+  photoUrls?: string[];
   caption?: string;
   visibility?: 'PRIVATE' | 'PUBLIC';
 }
@@ -34,6 +35,7 @@ export class AssetsService {
       labelCondition: input.labelCondition,
       storageLocation: input.storageLocation ?? 'HOME',
       photoUrl: input.photoUrl,
+      photoUrls: input.photoUrls ?? (input.photoUrl ? [input.photoUrl] : []),
       caption: input.caption,
       visibility: input.visibility ?? 'PRIVATE'
     };
@@ -55,6 +57,7 @@ export class AssetsService {
         labelCondition: normalized.labelCondition,
         storageLocation: normalized.storageLocation,
         photoUrl: normalized.photoUrl,
+        photoUrls: normalized.photoUrls,
         caption: normalized.caption,
         visibility: normalized.visibility
       }
@@ -92,6 +95,7 @@ export class AssetsService {
         labelCondition: input.labelCondition,
         storageLocation: input.storageLocation,
         photoUrl: input.photoUrl,
+        photoUrls: input.photoUrls,
         caption: input.caption,
         visibility: input.visibility
       }
@@ -118,6 +122,10 @@ export class AssetsService {
       purchasePrice: Number(asset.purchasePrice),
       purchaseDate: asset.purchaseDate,
       bottleCondition: asset.bottleCondition,
+      boxAvailable: asset.boxAvailable,
+      photoUrl: asset.photoUrl ?? null,
+      photoUrls: asset.photoUrls ?? [],
+      caption: asset.caption ?? null,
       visibility: asset.visibility,
       customProductName: asset.customProductName,
       displayName:
@@ -125,6 +133,19 @@ export class AssetsService {
         [asset.variant?.product.brand.name, asset.variant?.product.name, asset.variant?.specialTag].filter(Boolean).join(' '),
       trustedPrice: asset.variant?.priceAggregate?.trustedPrice ? Number(asset.variant.priceAggregate.trustedPrice) : null
     }));
+  }
+
+  async resetMyAssets(userEmail: string) {
+    const user = await this.ensureUser(userEmail);
+    const before = await this.prisma.whiskyAsset.count({ where: { userId: user.id } });
+
+    await this.prisma.portfolioShare.deleteMany({ where: { userId: user.id } });
+    await this.prisma.whiskyAsset.deleteMany({ where: { userId: user.id } });
+
+    return {
+      email: user.email,
+      deleted: before
+    };
   }
 
   private async ensureUser(email: string) {

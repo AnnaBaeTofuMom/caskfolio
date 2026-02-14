@@ -63,8 +63,46 @@ model User {
   authSessions AuthSession[]
   customProductSubmissions CustomProductSubmission[]
   phoneVerifications PhoneVerification[]
+  portfolioDailySnapshots PortfolioDailySnapshot[]
+  feedLikes       FeedLike[]
+  feedComments    FeedComment[]
+  feedPollVotes   FeedPollVote[]
+  notifications   Notification[] @relation("NotificationRecipient")
+  sentNotifications Notification[] @relation("NotificationActor")
 
   @@index([provider, providerSub])
+}
+
+model Notification {
+  id          String      @id @default(uuid())
+  userId      String
+  actorId     String?
+  assetId     String?
+  type        String
+  message     String
+  createdAt   DateTime    @default(now())
+  readAt      DateTime?
+  user        User        @relation("NotificationRecipient", fields: [userId], references: [id], onDelete: Cascade)
+  actor       User?       @relation("NotificationActor", fields: [actorId], references: [id], onDelete: SetNull)
+  asset       WhiskyAsset? @relation(fields: [assetId], references: [id], onDelete: SetNull)
+
+  @@index([userId, createdAt])
+  @@index([readAt])
+}
+
+model PortfolioDailySnapshot {
+  id                 String   @id @default(uuid())
+  userId             String
+  snapshotDate       DateTime
+  totalEstimatedValue Decimal @db.Decimal(12, 2)
+  totalPurchaseValue  Decimal @db.Decimal(12, 2)
+  unrealizedPnL       Decimal @db.Decimal(12, 2)
+  assetCount          Int
+  createdAt          DateTime @default(now())
+  user               User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, snapshotDate])
+  @@index([userId, snapshotDate])
 }
 
 model Brand {
@@ -111,6 +149,7 @@ model WhiskyAsset {
   labelCondition    String?
   storageLocation   StorageLocation
   photoUrl          String?
+  photoUrls         String[]         @default([])
   caption           String?
   visibility        Visibility       @default(PRIVATE)
   createdAt         DateTime         @default(now())
@@ -118,10 +157,65 @@ model WhiskyAsset {
   variant           Variant?         @relation(fields: [variantId], references: [id], onDelete: SetNull)
   ownershipHistory  OwnershipHistory[]
   feedScore         FeedScore?
+  likes             FeedLike[]
+  comments          FeedComment[]
+  poll              FeedPoll?
+  notifications     Notification[]
 
   @@index([userId, createdAt])
   @@index([variantId])
   @@index([visibility])
+}
+
+model FeedLike {
+  id        String     @id @default(uuid())
+  assetId   String
+  userId    String
+  createdAt DateTime   @default(now())
+  asset     WhiskyAsset @relation(fields: [assetId], references: [id], onDelete: Cascade)
+  user      User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([assetId, userId])
+  @@index([assetId, createdAt])
+}
+
+model FeedComment {
+  id        String     @id @default(uuid())
+  assetId   String
+  userId    String
+  parentCommentId String?
+  content   String
+  createdAt DateTime   @default(now())
+  asset     WhiskyAsset @relation(fields: [assetId], references: [id], onDelete: Cascade)
+  user      User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  parentComment FeedComment? @relation("CommentReplies", fields: [parentCommentId], references: [id], onDelete: Cascade)
+  replies   FeedComment[] @relation("CommentReplies")
+
+  @@index([assetId, createdAt])
+  @@index([parentCommentId, createdAt])
+}
+
+model FeedPoll {
+  id        String       @id @default(uuid())
+  assetId   String       @unique
+  question  String
+  options   String[]
+  createdAt DateTime     @default(now())
+  asset     WhiskyAsset  @relation(fields: [assetId], references: [id], onDelete: Cascade)
+  votes     FeedPollVote[]
+}
+
+model FeedPollVote {
+  id          String    @id @default(uuid())
+  pollId      String
+  userId      String
+  optionIndex Int
+  createdAt   DateTime  @default(now())
+  poll        FeedPoll  @relation(fields: [pollId], references: [id], onDelete: Cascade)
+  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([pollId, userId])
+  @@index([pollId, createdAt])
 }
 
 model OwnershipHistory {

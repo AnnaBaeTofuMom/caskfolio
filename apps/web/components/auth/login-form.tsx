@@ -1,15 +1,17 @@
 'use client';
 
 import { FormEvent, useEffect, useState } from 'react';
+import { useRouter } from 'next/navigation';
+import { AUTH_STATE_CHANGED_EVENT, readAuthContext } from '../../lib/auth-state';
 
-const API_BASE = process.env.NEXT_PUBLIC_API_BASE_URL ?? 'http://localhost:4000/api';
+const API_BASE = process.env.NEXT_PUBLIC_API_BASE_URL ?? '/api-proxy';
 
 export function LoginForm() {
-  const [email, setEmail] = useState('demo@caskfolio.com');
-  const [password, setPassword] = useState('secret123');
-  const [phone, setPhone] = useState('+821012341234');
-  const [phoneCode, setPhoneCode] = useState('');
-  const [showPhoneVerification, setShowPhoneVerification] = useState(false);
+  const router = useRouter();
+  const [mode, setMode] = useState<'signin' | 'signup'>('signin');
+  const [name, setName] = useState('');
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
   const [status, setStatus] = useState('');
 
   useEffect(() => {
@@ -24,42 +26,61 @@ export function LoginForm() {
       .then(async (response) => {
         if (!response.ok) throw new Error('oauth callback failed');
         const data = (await response.json()) as { token?: string; refreshToken?: string; email?: string; name?: string };
-        if (!data.token || !data.refreshToken) throw new Error('tokens missing');
-        window.localStorage.setItem('caskfolio_access_token', data.token);
-        window.localStorage.setItem('caskfolio_refresh_token', data.refreshToken);
-        if (data.email) window.localStorage.setItem('caskfolio_user_email', data.email);
-        if (data.name) window.localStorage.setItem('caskfolio_user_name', data.name);
+        completeLogin(data);
         setStatus('OAuth login successful');
       })
       .catch(() => setStatus('OAuth login failed'));
   }, []);
 
+  function completeLogin(data: { token?: string; refreshToken?: string; email?: string; name?: string }) {
+    if (!data.token) throw new Error('token missing');
+    const refreshToken = data.refreshToken ?? data.token;
+    window.localStorage.setItem('caskfolio_access_token', data.token);
+    window.localStorage.setItem('caskfolio_refresh_token', refreshToken);
+    const auth = readAuthContext(window.localStorage);
+    const tokenEmail = auth?.email;
+    if (data.email || tokenEmail || email) {
+      window.localStorage.setItem('caskfolio_user_email', data.email ?? tokenEmail ?? email);
+    }
+    if (data.name) window.localStorage.setItem('caskfolio_user_name', data.name);
+    window.dispatchEvent(new Event(AUTH_STATE_CHANGED_EVENT));
+    router.push('/portfolio');
+  }
+
   async function onSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    setStatus('Signing in...');
+    setStatus(mode === 'signin' ? 'Signing in...' : 'Creating account...');
+    try {
+      if (mode === 'signup') {
+        const signupResponse = await fetch(`${API_BASE}/auth/signup`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email, password, name })
+        });
 
-    const response = await fetch(`${API_BASE}/auth/login`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ email, password })
-    });
+        if (!signupResponse.ok) {
+          setStatus('Signup failed');
+          return;
+        }
+      }
 
-    if (!response.ok) {
-      setStatus('Login failed');
-      return;
+      const response = await fetch(`${API_BASE}/auth/login`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, password })
+      });
+
+      if (!response.ok) {
+        setStatus('Login failed');
+        return;
+      }
+
+      const data = (await response.json()) as { token?: string; refreshToken?: string; email?: string; name?: string };
+      completeLogin(data);
+      setStatus('Login successful');
+    } catch {
+      setStatus('Cannot connect to API server');
     }
-
-    const data = (await response.json()) as { token?: string; refreshToken?: string; email?: string; name?: string };
-    if (!data.token || !data.refreshToken) {
-      setStatus('Login succeeded but tokens missing');
-      return;
-    }
-
-    window.localStorage.setItem('caskfolio_access_token', data.token);
-    window.localStorage.setItem('caskfolio_refresh_token', data.refreshToken);
-    window.localStorage.setItem('caskfolio_user_email', email);
-    if (data.name) window.localStorage.setItem('caskfolio_user_name', data.name);
-    setStatus('Login successful');
   }
 
   async function startOauth(provider: 'google' | 'apple') {
@@ -71,45 +92,20 @@ export function LoginForm() {
         setStatus(`${provider} oauth start failed`);
         return;
       }
-      const data = (await response.json()) as { url?: string };
-      if (!data.url) {
+      const data = (await response.json()) as { url?: string; redirect?: string };
+      const oauthUrl = data.url ?? data.redirect;
+      if (!oauthUrl) {
         setStatus(`${provider} oauth url missing`);
         return;
       }
-      window.location.href = data.url;
+      if (!oauthUrl.startsWith('http://') && !oauthUrl.startsWith('https://') && !oauthUrl.startsWith('/')) {
+        setStatus(`${provider} oauth start failed`);
+        return;
+      }
+      window.location.href = oauthUrl.startsWith('/') ? `${window.location.origin}${oauthUrl}` : oauthUrl;
     } catch {
       setStatus(`${provider} oauth start failed`);
     }
-  }
-
-  async function requestPhoneCode() {
-    setStatus('Requesting phone verification code...');
-    const response = await fetch(`${API_BASE}/auth/phone/request`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ email, phone })
-    });
-    if (!response.ok) {
-      setStatus('Phone code request failed');
-      return;
-    }
-    const data = (await response.json()) as { code?: string };
-    if (data.code) {
-      setPhoneCode(data.code);
-      setStatus(`Verification code issued: ${data.code}`);
-      return;
-    }
-    setStatus('Verification code sent');
-  }
-
-  async function verifyPhoneCode() {
-    setStatus('Verifying phone...');
-    const response = await fetch(`${API_BASE}/auth/phone/verify`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ email, phone, code: phoneCode })
-    });
-    setStatus(response.ok ? 'Phone verified successfully' : 'Phone verification failed');
   }
 
   return (
@@ -120,7 +116,23 @@ export function LoginForm() {
       </header>
       <form suppressHydrationWarning className="card form-grid login-card" onSubmit={onSubmit}>
         <h2>Sign In</h2>
-        <p className="sub">Choose your preferred sign-in method</p>
+        <p className="sub">{mode === 'signin' ? 'Choose your preferred sign-in method' : 'Create your account first'}</p>
+
+        <div className="actions" style={{ marginTop: 0 }}>
+          <button className={`btn ${mode === 'signin' ? 'primary' : 'ghost'}`} type="button" onClick={() => setMode('signin')}>
+            Sign In
+          </button>
+          <button className={`btn ${mode === 'signup' ? 'primary' : 'ghost'}`} type="button" onClick={() => setMode('signup')}>
+            Sign Up
+          </button>
+        </div>
+
+        {mode === 'signup' ? (
+          <label>
+            Name
+            <input suppressHydrationWarning value={name} onChange={(e) => setName(e.target.value)} placeholder="Your name" />
+          </label>
+        ) : null}
 
         <label>
           Email
@@ -128,45 +140,40 @@ export function LoginForm() {
         </label>
         <label>
           Password
-          <input suppressHydrationWarning type="password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="••••••••" />
+          <input suppressHydrationWarning type="password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="Enter your password" />
         </label>
         <button className="btn primary" type="submit">
-          Sign In
+          {mode === 'signin' ? 'Sign In' : 'Create Account'}
         </button>
 
         <div className="or-row">or continue with</div>
 
-        <button className="btn ghost" type="button" onClick={() => void startOauth('google')}>
+        <button className="btn ghost google-auth-btn" type="button" onClick={() => void startOauth('google')}>
+          <span className="google-auth-icon" aria-hidden="true">
+            <svg viewBox="0 0 24 24" width="18" height="18" role="img">
+              <path
+                fill="#EA4335"
+                d="M12 10.2v3.9h5.5c-.2 1.2-.9 2.2-1.9 2.9v2.4h3.1c1.8-1.7 2.8-4.1 2.8-7 0-.7-.1-1.5-.2-2.2H12z"
+              />
+              <path
+                fill="#34A853"
+                d="M12 21c2.5 0 4.7-.8 6.3-2.3l-3.1-2.4c-.9.6-2 1-3.2 1-2.5 0-4.5-1.7-5.2-4H3.6v2.5C5.2 18.9 8.3 21 12 21z"
+              />
+              <path
+                fill="#4A90E2"
+                d="M6.8 13.3c-.2-.6-.3-1.2-.3-1.8s.1-1.2.3-1.8V7.2H3.6C2.9 8.5 2.5 10 2.5 11.5s.4 3 1.1 4.3l3.2-2.5z"
+              />
+              <path
+                fill="#FBBC05"
+                d="M12 6.7c1.4 0 2.7.5 3.7 1.4l2.8-2.8C16.7 3.6 14.5 3 12 3 8.3 3 5.2 5.1 3.6 8.2l3.2 2.5c.7-2.3 2.7-4 5.2-4z"
+              />
+            </svg>
+          </span>
           Continue with Google
         </button>
-        <button className="btn ghost" type="button" onClick={() => void startOauth('apple')}>
-          Continue with Apple
-        </button>
+        {/* Apple login is temporarily hidden */}
 
-        <button className="btn secondary" type="button" onClick={() => setShowPhoneVerification((prev) => !prev)}>
-          Verify with Phone Number
-        </button>
-
-        {showPhoneVerification ? (
-          <section className="phone-panel">
-            <label>
-              Phone
-              <input suppressHydrationWarning value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="+8210..." />
-            </label>
-            <label>
-              Code
-              <input suppressHydrationWarning value={phoneCode} onChange={(e) => setPhoneCode(e.target.value)} placeholder="6-digit code" />
-            </label>
-            <div className="actions">
-              <button className="btn ghost" type="button" onClick={() => void requestPhoneCode()}>
-                Request Code
-              </button>
-              <button className="btn primary" type="button" onClick={() => void verifyPhoneCode()}>
-                Verify
-              </button>
-            </div>
-          </section>
-        ) : null}
+        {/* Phone verification is temporarily hidden */}
 
         <p className="sub" style={{ fontSize: 12, textAlign: 'center' }}>
           By signing in, you agree to our Terms of Service and Privacy Policy

@@ -16,7 +16,7 @@ export class CatalogService {
           }
         : undefined,
       orderBy: { name: 'asc' },
-      take: 50
+      take: 200
     });
   }
 

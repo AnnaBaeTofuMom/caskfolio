@@ -4,7 +4,7 @@ import Link from 'next/link';
 import { useEffect, useState } from 'react';
 import { AdminOpsPanel } from '../../components/admin/admin-ops-panel';
 
-const API_BASE = process.env.NEXT_PUBLIC_API_BASE_URL ?? 'http://localhost:4000/api';
+const API_BASE = process.env.NEXT_PUBLIC_API_BASE_URL ?? '/api-proxy';
 
 type Metrics = {
   totalUsers: number;
@@ -64,7 +64,7 @@ export default function AdminPage() {
         <article className="card">
           <h1>Admin Access Required</h1>
           <p className="sub">Sign in with an admin account to access this page.</p>
-          <Link className="btn primary" href="/auth/login">
+          <Link className="btn primary" href="/login">
             Go to Login
           </Link>
         </article>

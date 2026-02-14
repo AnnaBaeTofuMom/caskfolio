@@ -2,11 +2,11 @@
 
 import { FormEvent, useState } from 'react';
 
-const API_BASE = process.env.NEXT_PUBLIC_API_BASE_URL ?? 'http://localhost:4000/api';
+const API_BASE = process.env.NEXT_PUBLIC_API_BASE_URL ?? '/api-proxy';
 
 export function PhoneVerificationForm() {
-  const [email, setEmail] = useState('demo@caskfolio.com');
-  const [phone, setPhone] = useState('+821012341234');
+  const [email, setEmail] = useState('');
+  const [phone, setPhone] = useState('');
   const [code, setCode] = useState('');
   const [status, setStatus] = useState('');
 
@@ -58,11 +58,11 @@ export function PhoneVerificationForm() {
       <h2>Phone Verification</h2>
       <label>
         Email
-        <input suppressHydrationWarning type="email" value={email} onChange={(e) => setEmail(e.target.value)} />
+        <input suppressHydrationWarning type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="you@example.com" />
       </label>
       <label>
         Phone
-        <input suppressHydrationWarning value={phone} onChange={(e) => setPhone(e.target.value)} />
+        <input suppressHydrationWarning value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="+8210..." />
       </label>
       <label>
         Code
