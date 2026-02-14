@@ -1,4 +1,5 @@
 import { Injectable } from '@nestjs/common';
+import { PrismaService } from '../../prisma/prisma.service.js';
 
 type Method = 'WEIGHTED_MEDIAN' | 'EXTERNAL_MEDIAN' | 'INTERNAL_MEDIAN' | 'HIDDEN';
 
@@ -9,6 +10,8 @@ interface Snapshot {
 
 @Injectable()
 export class PriceAggregateService {
+  constructor(private readonly prisma: PrismaService) {}
+
   calculateTrustedPrice(internal: Snapshot[], external: Snapshot[]) {
     const merged = [...internal, ...external].filter((v) => v.price > 0 && v.weight > 0);
 
@@ -40,6 +43,45 @@ export class PriceAggregateService {
       method: 'HIDDEN' as Method,
       trustedPrice: null,
       confidence: 0
+    };
+  }
+
+  async getVariantPricingStats(variantId: string) {
+    const [internalRows, marketRows, owners] = await Promise.all([
+      this.prisma.whiskyAsset.findMany({
+        where: { variantId },
+        select: { purchasePrice: true }
+      }),
+      this.prisma.marketPriceSnapshot.findMany({
+        where: { variantId },
+        orderBy: { crawledAt: 'desc' },
+        take: 30
+      }),
+      this.prisma.whiskyAsset.count({ where: { variantId } })
+    ]);
+
+    const internal = internalRows.map((row) => Number(row.purchasePrice));
+    const external = marketRows.flatMap((row) => [
+      Number(row.lowestPrice),
+      Number(row.highestPrice)
+    ]);
+
+    const trusted = this.calculateTrustedPrice(
+      internal.map((price) => ({ price, weight: 1 })),
+      external.map((price) => ({ price, weight: 2 }))
+    );
+
+    const platformAverage = internal.length
+      ? Math.round((internal.reduce((sum, p) => sum + p, 0) / internal.length) * 100) / 100
+      : null;
+
+    return {
+      variantId,
+      ...trusted,
+      platformAverage,
+      min: internal.length ? Math.min(...internal) : null,
+      max: internal.length ? Math.max(...internal) : null,
+      owners
     };
   }
 

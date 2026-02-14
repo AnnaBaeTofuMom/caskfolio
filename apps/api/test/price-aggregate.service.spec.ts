@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { PriceAggregateService } from '../src/modules/pricing/price-aggregate.service.js';
 
 describe('PriceAggregateService', () => {
-  const service = new PriceAggregateService();
+  const service = new PriceAggregateService({} as never);
 
   it('uses weighted median when combined data is sufficient', () => {
     const result = service.calculateTrustedPrice(

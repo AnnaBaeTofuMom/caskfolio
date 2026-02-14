@@ -1,33 +1,39 @@
-import { Body, Controller, Get, Patch, Post } from '@nestjs/common';
+import { Body, Controller, Get, Post } from '@nestjs/common';
+import { AdminService } from './admin.service.js';
 
 @Controller('admin')
 export class AdminController {
+  constructor(private readonly adminService: AdminService) {}
+
   @Get('metrics')
   metrics() {
-    return {
-      totalUsers: 1520,
-      activeUsers: 684,
-      totalRegisteredAssets: 5830,
-      totalAum: 4120000000,
-      topVariantsByAum: [
-        { variant: 'Macallan 18 Sherry Oak', aum: 530000000 },
-        { variant: 'Yamazaki 18', aum: 470000000 }
-      ]
-    };
+    return this.adminService.metrics();
+  }
+
+  @Get('users')
+  users() {
+    return this.adminService.users();
+  }
+
+  @Post('catalog/brands')
+  createBrand(@Body() body: { name: string }) {
+    return this.adminService.createBrand(body.name);
+  }
+
+  @Post('catalog/products')
+  createProduct(@Body() body: { brandId: string; name: string }) {
+    return this.adminService.createProduct(body.brandId, body.name);
   }
 
   @Post('catalog/variants')
-  createVariant(@Body() body: { productId: string; releaseYear?: number; bottleSize?: number }) {
-    return { id: 'variant-new', ...body };
-  }
-
-  @Patch('custom-products/:submissionId/approve')
-  approveCustomProduct() {
-    return { approved: true };
+  createVariant(
+    @Body() body: { productId: string; releaseYear?: number; bottleSize?: number; region?: string; specialTag?: string }
+  ) {
+    return this.adminService.createVariant(body);
   }
 
   @Get('export')
   exportData() {
-    return { status: 'queued', format: 'csv' };
+    return this.adminService.exportData();
   }
 }
