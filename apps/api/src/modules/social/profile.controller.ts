@@ -1,20 +1,12 @@
 import { Controller, Get, Param } from '@nestjs/common';
+import { SocialService } from './social.service.js';
 
 @Controller('u')
 export class ProfileController {
+  constructor(private readonly socialService: SocialService) {}
+
   @Get(':username')
   publicProfile(@Param('username') username: string) {
-    return {
-      username,
-      summary: { assetCount: 12, publicAssets: 8 },
-      assets: [
-        {
-          assetId: 'asset-123',
-          title: 'Yamazaki 18',
-          imageUrl: null,
-          visibility: 'PUBLIC'
-        }
-      ]
-    };
+    return this.socialService.publicProfile(username);
   }
 }

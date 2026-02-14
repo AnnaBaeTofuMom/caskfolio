@@ -10,13 +10,13 @@ interface MixedFeedItem extends FeedInputItem {
   source: SourceType;
 }
 
-interface MixedFeedResult {
-  items: MixedFeedItem[];
+interface MixedFeedResult<T extends FeedInputItem> {
+  items: Array<T & { source: SourceType }>;
 }
 
 @Injectable()
 export class SocialFeedService {
-  mix(following: FeedInputItem[], recommended: FeedInputItem[], limit = 20): MixedFeedResult {
+  mix<T extends FeedInputItem>(following: T[], recommended: T[], limit = 20): MixedFeedResult<T> {
     const normalizedLimit = Math.max(1, limit);
     const preferredFollowingCount = Math.floor(normalizedLimit * 0.7);
     const preferredRecommendedCount = normalizedLimit - preferredFollowingCount;
@@ -31,7 +31,7 @@ export class SocialFeedService {
       source: 'RECOMMENDED' as const
     }));
 
-    const items: MixedFeedItem[] = [...followingSlice, ...recommendedSlice];
+    const items: Array<T & { source: SourceType }> = [...followingSlice, ...recommendedSlice];
     const remaining = normalizedLimit - items.length;
 
     if (remaining > 0) {

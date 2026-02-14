@@ -1,42 +1,26 @@
-import { Controller, Delete, Get, Param, Post, Query } from '@nestjs/common';
-import { randomUUID } from 'node:crypto';
-import { SocialFeedService } from './social-feed.service.js';
+import { Controller, Delete, Get, Headers, Param, Post, Query } from '@nestjs/common';
+import { SocialService } from './social.service.js';
 
 @Controller('social')
 export class SocialController {
-  constructor(private readonly socialFeedService: SocialFeedService) {}
+  constructor(private readonly socialService: SocialService) {}
 
   @Post('follow/:userId')
-  follow(@Param('userId') userId: string) {
-    return { followed: true, userId };
+  follow(@Headers('x-user-email') userEmail = 'demo@caskfolio.com', @Param('userId') userId: string) {
+    return this.socialService.follow(userEmail, userId);
   }
 
   @Delete('follow/:userId')
-  unfollow(@Param('userId') userId: string) {
-    return { followed: false, userId };
+  unfollow(@Headers('x-user-email') userEmail = 'demo@caskfolio.com', @Param('userId') userId: string) {
+    return this.socialService.unfollow(userEmail, userId);
   }
 
   @Get('feed')
-  feed(@Query('cursor') cursor?: string) {
-    const following = Array.from({ length: 7 }).map((_, index) => ({ id: `f-${index + 1}` }));
-    const recommended = Array.from({ length: 5 }).map((_, index) => ({ id: `r-${index + 1}` }));
-    const mixed = this.socialFeedService.mix(following, recommended, 10);
-
-    return {
-      cursor,
-      mix: { following: 0.7, recommended: 0.3 },
-      nextCursor: randomUUID(),
-      items: mixed.items.map((entry, idx) => ({
-        assetId: `asset-${idx + 1}`,
-        owner: { username: `${entry.source.toLowerCase()}-${idx + 1}`, name: 'Collector' },
-        title: idx % 2 === 0 ? 'Macallan Sherry Oak 18' : 'Yamazaki 18',
-        caption: entry.source === 'FOLLOWING' ? 'Following collection update' : 'Recommended pick',
-        trustedPrice: idx % 2 === 0 ? 368000 : 1020000,
-        priceMethod: 'WEIGHTED_MEDIAN',
-        confidence: 0.82,
-        source: entry.source,
-        createdAt: new Date().toISOString()
-      }))
-    };
+  feed(
+    @Headers('x-user-email') userEmail = 'demo@caskfolio.com',
+    @Query('cursor') cursor?: string,
+    @Query('limit') limit?: string
+  ) {
+    return this.socialService.feed(userEmail, cursor, Number(limit ?? 10));
   }
 }
