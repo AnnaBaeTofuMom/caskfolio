@@ -7,6 +7,9 @@ const API_BASE = process.env.NEXT_PUBLIC_API_BASE_URL ?? 'http://localhost:4000/
 export function LoginForm() {
   const [email, setEmail] = useState('demo@caskfolio.com');
   const [password, setPassword] = useState('secret123');
+  const [phone, setPhone] = useState('+821012341234');
+  const [phoneCode, setPhoneCode] = useState('');
+  const [showPhoneVerification, setShowPhoneVerification] = useState(false);
   const [status, setStatus] = useState('');
 
   useEffect(() => {
@@ -79,27 +82,95 @@ export function LoginForm() {
     }
   }
 
+  async function requestPhoneCode() {
+    setStatus('Requesting phone verification code...');
+    const response = await fetch(`${API_BASE}/auth/phone/request`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email, phone })
+    });
+    if (!response.ok) {
+      setStatus('Phone code request failed');
+      return;
+    }
+    const data = (await response.json()) as { code?: string };
+    if (data.code) {
+      setPhoneCode(data.code);
+      setStatus(`Verification code issued: ${data.code}`);
+      return;
+    }
+    setStatus('Verification code sent');
+  }
+
+  async function verifyPhoneCode() {
+    setStatus('Verifying phone...');
+    const response = await fetch(`${API_BASE}/auth/phone/verify`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email, phone, code: phoneCode })
+    });
+    setStatus(response.ok ? 'Phone verified successfully' : 'Phone verification failed');
+  }
+
   return (
-    <form className="card form-grid" onSubmit={onSubmit}>
-      <label>
-        Email
-        <input suppressHydrationWarning type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="you@example.com" />
-      </label>
-      <label>
-        Password
-        <input suppressHydrationWarning type="password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="••••••••" />
-      </label>
-      <button className="btn primary" type="submit">
-        Login
-      </button>
-      <button className="btn ghost" type="button" onClick={() => void startOauth('google')}>
-        Continue with Google
-      </button>
-      <button className="btn ghost" type="button" onClick={() => void startOauth('apple')}>
-        Continue with Apple
-      </button>
-      <small>{status}</small>
-    </form>
+    <div className="login-wrap">
+      <header className="login-head">
+        <h1>Welcome Back</h1>
+        <p className="sub">Sign in to manage your whisky collection</p>
+      </header>
+      <form suppressHydrationWarning className="card form-grid login-card" onSubmit={onSubmit}>
+        <h2>Sign In</h2>
+        <p className="sub">Choose your preferred sign-in method</p>
+
+        <label>
+          Email
+          <input suppressHydrationWarning type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="you@example.com" />
+        </label>
+        <label>
+          Password
+          <input suppressHydrationWarning type="password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="••••••••" />
+        </label>
+        <button className="btn primary" type="submit">
+          Sign In
+        </button>
+
+        <div className="or-row">or continue with</div>
+
+        <button className="btn ghost" type="button" onClick={() => void startOauth('google')}>
+          Continue with Google
+        </button>
+        <button className="btn ghost" type="button" onClick={() => void startOauth('apple')}>
+          Continue with Apple
+        </button>
+
+        <button className="btn secondary" type="button" onClick={() => setShowPhoneVerification((prev) => !prev)}>
+          Verify with Phone Number
+        </button>
+
+        {showPhoneVerification ? (
+          <section className="phone-panel">
+            <label>
+              Phone
+              <input suppressHydrationWarning value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="+8210..." />
+            </label>
+            <label>
+              Code
+              <input suppressHydrationWarning value={phoneCode} onChange={(e) => setPhoneCode(e.target.value)} placeholder="6-digit code" />
+            </label>
+            <div className="actions">
+              <button className="btn ghost" type="button" onClick={() => void requestPhoneCode()}>
+                Request Code
+              </button>
+              <button className="btn primary" type="button" onClick={() => void verifyPhoneCode()}>
+                Verify
+              </button>
+            </div>
+          </section>
+        ) : null}
+
+        <small>{status}</small>
+      </form>
+    </div>
   );
 }
 

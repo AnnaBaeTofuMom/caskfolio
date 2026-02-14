@@ -1,6 +1,6 @@
 import './globals.css';
 import type { Metadata } from 'next';
-import Link from 'next/link';
+import { SiteShell } from '../components/site-shell';
 
 export const metadata: Metadata = {
   title: 'Caskfolio',
@@ -11,21 +11,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <html lang="en" suppressHydrationWarning>
       <body suppressHydrationWarning>
-        <header className="topbar">
-          <div className="shell nav-wrap">
-            <Link href="/" className="logo">
-              Caskfolio
-            </Link>
-            <nav>
-              <Link href="/feed">Feed</Link>
-              <Link href="/portfolio">Portfolio</Link>
-              <Link href="/assets">Assets</Link>
-              <Link href="/admin">Admin</Link>
-              <Link href="/auth/login">Login</Link>
-            </nav>
-          </div>
-        </header>
-        <main className="shell">{children}</main>
+        <SiteShell>{children}</SiteShell>
       </body>
     </html>
   );

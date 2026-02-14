@@ -34,12 +34,16 @@ export function FeedCardItem({ card }: { card: FeedCard }) {
       {card.imageUrl ? (
         // eslint-disable-next-line @next/next/no-img-element
         <img className="feed-image" src={card.imageUrl} alt={card.title} />
-      ) : null}
+      ) : (
+        <div className="feed-image feed-image-placeholder">
+          <span>{card.title}</span>
+        </div>
+      )}
       <div className="meta">
         <Link href={`/u/${card.owner.username}`}>
           <strong>@{card.owner.username}</strong>
         </Link>
-        <span>{new Date(card.createdAt).toLocaleDateString()}</span>
+        <span>{formatDate(card.createdAt)}</span>
       </div>
       <h3>{card.title}</h3>
       {card.caption ? <p>{card.caption}</p> : null}
@@ -50,11 +54,23 @@ export function FeedCardItem({ card }: { card: FeedCard }) {
       ) : null}
       <div className="price-row">
         <span>Trusted Price</span>
-        <strong>{card.trustedPrice ? `${card.trustedPrice.toLocaleString()} KRW` : 'Hidden'}</strong>
+        <strong>{card.trustedPrice ? `${formatNumber(card.trustedPrice)} KRW` : 'Hidden'}</strong>
       </div>
       <small>
         {card.priceMethod} · confidence {(card.confidence * 100).toFixed(0)}%
       </small>
     </article>
   );
+}
+
+function formatDate(isoDate: string) {
+  const date = new Date(isoDate);
+  const year = date.getUTCFullYear();
+  const month = String(date.getUTCMonth() + 1).padStart(2, '0');
+  const day = String(date.getUTCDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+}
+
+function formatNumber(value: number) {
+  return new Intl.NumberFormat('en-US').format(value);
 }
