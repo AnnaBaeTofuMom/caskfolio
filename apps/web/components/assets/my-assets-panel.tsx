@@ -12,30 +12,46 @@ type Asset = {
   visibility: 'PUBLIC' | 'PRIVATE';
 };
 
+export function hasAccessToken(storage: Pick<Storage, 'getItem'> | null) {
+  if (!storage) return false;
+  return Boolean(storage.getItem('caskfolio_access_token'));
+}
+
 export function MyAssetsPanel() {
   const [assets, setAssets] = useState<Asset[]>([]);
   const [loading, setLoading] = useState(true);
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [shareLink, setShareLink] = useState('');
   const [status, setStatus] = useState('');
 
   async function loadAssets() {
     setLoading(true);
-    const response = await fetch(`${API_BASE}/assets/me`, {
-      headers: { 'x-user-email': 'demo@caskfolio.com' }
-    });
+    try {
+      const response = await fetch(`${API_BASE}/assets/me`, {
+        headers: { 'x-user-email': 'demo@caskfolio.com' }
+      });
 
-    if (!response.ok) {
+      if (!response.ok) {
+        setStatus('Failed to load assets');
+        return;
+      }
+
+      const data = (await response.json()) as Asset[];
+      setAssets(data);
+    } catch {
+      setStatus('Please sign in first');
+    } finally {
       setLoading(false);
-      setStatus('Failed to load assets');
-      return;
     }
-
-    const data = (await response.json()) as Asset[];
-    setAssets(data);
-    setLoading(false);
   }
 
   useEffect(() => {
+    const authenticated = hasAccessToken(typeof window === 'undefined' ? null : window.localStorage);
+    setIsAuthenticated(authenticated);
+    if (!authenticated) {
+      setLoading(false);
+      return;
+    }
     void loadAssets();
   }, []);
 
@@ -89,10 +105,14 @@ export function MyAssetsPanel() {
     <section className="assets-panel card">
       <div className="assets-panel-head">
         <h2>My Assets</h2>
-        <button className="btn ghost" type="button" onClick={createShareLink}>
-          Generate Share Link
-        </button>
+        {isAuthenticated ? (
+          <button className="btn ghost" type="button" onClick={createShareLink}>
+            Generate Share Link
+          </button>
+        ) : null}
       </div>
+
+      {!isAuthenticated ? <p>Login required to view your portfolio assets.</p> : null}
 
       {loading ? <p>Loading assets...</p> : null}
 
