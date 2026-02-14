@@ -9,4 +9,9 @@ export class PricingController {
   getVariantPrice(@Param('variantId') variantId: string) {
     return this.pricing.getVariantPricingStats(variantId);
   }
+
+  @Get(':variantId/price-history')
+  getVariantPriceHistory(@Param('variantId') variantId: string) {
+    return this.pricing.getVariantPriceHistory(variantId);
+  }
 }

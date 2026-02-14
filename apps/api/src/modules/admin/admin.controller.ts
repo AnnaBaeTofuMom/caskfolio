@@ -15,6 +15,11 @@ export class AdminController {
     return this.adminService.users();
   }
 
+  @Get('top-holders')
+  topHolders(@Query('limit') limit?: string) {
+    return this.adminService.topHolders(Number(limit ?? 10));
+  }
+
   @Get('custom-products')
   customProducts(@Query('status') status?: 'PENDING' | 'APPROVED' | 'REJECTED') {
     return this.adminService.customProducts(status ?? 'PENDING');

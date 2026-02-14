@@ -85,6 +85,22 @@ export class PriceAggregateService {
     };
   }
 
+  async getVariantPriceHistory(variantId: string, days = 30) {
+    const snapshots = await this.prisma.marketPriceSnapshot.findMany({
+      where: {
+        variantId,
+        crawledAt: { gte: new Date(Date.now() - 1000 * 60 * 60 * 24 * days) }
+      },
+      orderBy: { crawledAt: 'asc' }
+    });
+
+    return snapshots.map((snapshot) => ({
+      date: snapshot.crawledAt.toISOString().slice(0, 10),
+      low: Number(snapshot.lowestPrice),
+      high: Number(snapshot.highestPrice)
+    }));
+  }
+
   private weightedMedian(items: Snapshot[]): number {
     const sorted = [...items].sort((a, b) => a.price - b.price);
     const totalWeight = sorted.reduce((acc, it) => acc + it.weight, 0);

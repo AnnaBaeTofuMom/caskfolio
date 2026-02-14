@@ -16,6 +16,9 @@ export default async function AdminPage() {
       totalAum: 0
     };
 
+  const topHolders =
+    (await safeFetch<Array<{ userId: string; username: string; name: string; aum: number }>>('/admin/top-holders')) ?? [];
+
   const cards = [
     ['Total Users', metrics.totalUsers.toLocaleString()],
     ['Active Users', metrics.activeUsers.toLocaleString()],
@@ -34,6 +37,20 @@ export default async function AdminPage() {
           </article>
         ))}
       </div>
+      <article className="card">
+        <h2>Top Holders</h2>
+        {topHolders.length ? (
+          <ul>
+            {topHolders.map((holder) => (
+              <li key={holder.userId}>
+                @{holder.username} ({holder.name}) - {holder.aum.toLocaleString()} KRW
+              </li>
+            ))}
+          </ul>
+        ) : (
+          <p>No holder data yet.</p>
+        )}
+      </article>
     </section>
   );
 }

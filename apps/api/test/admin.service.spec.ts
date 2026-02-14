@@ -53,4 +53,27 @@ describe('AdminService', () => {
     expect(result.approved).toBe(true);
     expect(prisma.whiskyAsset.updateMany).toHaveBeenCalledTimes(1);
   });
+
+  it('returns top holders sorted by AUM', async () => {
+    const prisma: any = {
+      whiskyAsset: {
+        findMany: vi.fn().mockResolvedValue([
+          { userId: 'u1', purchasePrice: 100 },
+          { userId: 'u2', purchasePrice: 500 },
+          { userId: 'u1', purchasePrice: 200 }
+        ])
+      },
+      user: {
+        findMany: vi.fn().mockResolvedValue([
+          { id: 'u1', username: 'a', name: 'A' },
+          { id: 'u2', username: 'b', name: 'B' }
+        ])
+      }
+    };
+
+    const service = new AdminService(prisma);
+    const holders = await service.topHolders(2);
+    expect(holders[0].userId).toBe('u2');
+    expect(holders[0].aum).toBe(500);
+  });
 });

@@ -73,6 +73,32 @@ export class AdminService {
     });
   }
 
+  async topHolders(limit = 10) {
+    const assets = await this.prisma.whiskyAsset.findMany({
+      select: { userId: true, purchasePrice: true }
+    });
+    const users = await this.prisma.user.findMany({
+      select: { id: true, username: true, name: true }
+    });
+
+    const userMap = new Map(users.map((user) => [user.id, user]));
+    const totals = new Map<string, number>();
+
+    for (const asset of assets) {
+      totals.set(asset.userId, (totals.get(asset.userId) ?? 0) + Number(asset.purchasePrice));
+    }
+
+    return [...totals.entries()]
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, Math.max(1, limit))
+      .map(([userId, aum]) => ({
+        userId,
+        username: userMap.get(userId)?.username ?? 'unknown',
+        name: userMap.get(userId)?.name ?? 'Unknown',
+        aum
+      }));
+  }
+
   customProducts(status: 'PENDING' | 'APPROVED' | 'REJECTED' = 'PENDING') {
     return this.prisma.customProductSubmission.findMany({
       where: { status },
@@ -108,7 +134,22 @@ export class AdminService {
     return { approved: true, submissionId, variantId: variantId ?? null };
   }
 
-  exportData() {
-    return { status: 'queued', format: 'csv' };
+  async exportData() {
+    const assets = await this.prisma.whiskyAsset.findMany({
+      select: { id: true, userId: true, variantId: true, purchasePrice: true, purchaseDate: true, visibility: true }
+    });
+
+    const header = 'asset_id,user_id,variant_id,purchase_price,purchase_date,visibility';
+    const lines = assets.map(
+      (asset) =>
+        `${asset.id},${asset.userId},${asset.variantId ?? ''},${Number(asset.purchasePrice)},${asset.purchaseDate.toISOString()},${asset.visibility}`
+    );
+
+    return {
+      status: 'ready',
+      format: 'csv',
+      filename: `caskfolio-export-${new Date().toISOString().slice(0, 10)}.csv`,
+      csv: [header, ...lines].join('\n')
+    };
   }
 }
