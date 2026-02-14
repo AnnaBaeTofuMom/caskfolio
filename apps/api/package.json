@@ -5,9 +5,9 @@
   "type": "module",
   "scripts": {
     "dev": "nest start --watch",
-    "build": "nest build",
+    "build": "nest build -p tsconfig.build.json",
     "start": "node dist/main",
-    "test": "jest",
+    "test": "vitest run",
     "lint": "echo 'lint api: configure eslint'",
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },
@@ -29,11 +29,9 @@
   "devDependencies": {
     "@nestjs/cli": "^11.0.0",
     "@nestjs/testing": "^11.0.1",
-    "@types/jest": "^29.5.14",
     "@types/node": "^22.10.7",
-    "jest": "^29.7.0",
-    "ts-jest": "^29.2.5",
     "ts-node": "^10.9.2",
-    "typescript": "^5.7.3"
+    "typescript": "^5.7.3",
+    "vitest": "^2.1.8"
   }
 }

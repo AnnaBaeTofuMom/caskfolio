@@ -1,3 +1,4 @@
+import { describe, expect, it } from 'vitest';
 import { PriceAggregateService } from '../src/modules/pricing/price-aggregate.service.js';
 
 describe('PriceAggregateService', () => {
