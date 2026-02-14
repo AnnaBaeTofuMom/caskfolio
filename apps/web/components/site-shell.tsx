@@ -37,7 +37,7 @@ export function SiteShell({ children }: { children: React.ReactNode }) {
                 Logout
               </button>
             ) : (
-              <Link href="/auth/login">Login</Link>
+              <Link href="/login">Login</Link>
             )}
           </nav>
         </div>

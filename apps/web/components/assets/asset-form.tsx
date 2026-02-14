@@ -109,7 +109,7 @@ export function AssetForm() {
   }
 
   return (
-    <form className="card form-grid" onSubmit={onSubmit}>
+    <form suppressHydrationWarning className="card form-grid" onSubmit={onSubmit}>
       <label>
         Brand
         <select suppressHydrationWarning value={brandId} onChange={(e) => setBrandId(e.target.value)}>

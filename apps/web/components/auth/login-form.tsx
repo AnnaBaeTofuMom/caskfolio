@@ -168,8 +168,14 @@ export function LoginForm() {
           </section>
         ) : null}
 
+        <p className="sub" style={{ fontSize: 12, textAlign: 'center' }}>
+          By signing in, you agree to our Terms of Service and Privacy Policy
+        </p>
         <small>{status}</small>
       </form>
+      <p className="sub" style={{ textAlign: 'center', marginTop: 10, fontSize: 12 }}>
+        Demo: Use any email to sign in. Add admin email to access admin panel.
+      </p>
     </div>
   );
 }

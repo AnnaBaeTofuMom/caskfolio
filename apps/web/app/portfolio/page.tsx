@@ -59,46 +59,14 @@ export default function PortfolioPage() {
   }
 
   if (!isAuthenticated) {
-    const demo = {
-      totalEstimatedValue: 8720000,
-      totalPurchaseValue: 7500000,
-      unrealizedPnL: 1220000,
-      assetCount: 18
-    };
-    const demoStats = [
-      { label: 'Total Estimated Value', value: `${demo.totalEstimatedValue.toLocaleString()} KRW` },
-      { label: 'Total Purchase Value', value: `${demo.totalPurchaseValue.toLocaleString()} KRW` },
-      { label: 'Unrealized Gain/Loss', value: `+${demo.unrealizedPnL.toLocaleString()} KRW` },
-      { label: 'Asset Count', value: demo.assetCount.toLocaleString() }
-    ];
-
     return (
-      <section>
-        <h1>Portfolio Preview</h1>
-        <p className="sub">Sign in to track your real portfolio. Below is a sample preview.</p>
-        <div className="metrics">
-          {demoStats.map((stat) => (
-            <article key={stat.label} className="card metric">
-              <p>{stat.label}</p>
-              <strong>{stat.value}</strong>
-            </article>
-          ))}
-        </div>
-        <article className="card chart">
-          <h2>Portfolio Growth (Sample)</h2>
-          <p>2025-09: 6,900,000 / 2025-10: 7,100,000 / 2025-11: 7,350,000 / 2025-12: 7,620,000 / 2026-01: 8,050,000 / 2026-02: 8,720,000</p>
-        </article>
-        <article className="card" style={{ marginTop: 16 }}>
-          <h2>Create Your Own Portfolio</h2>
-          <p className="sub">Join Caskfolio and start registering your whisky assets.</p>
-          <div className="actions">
-            <Link className="btn primary" href="/auth/login">
-              Sign Up / Login
-            </Link>
-            <Link className="btn ghost" href="/assets">
-              View Asset Flow
-            </Link>
-          </div>
+      <section className="center-card">
+        <article className="card">
+          <h1>Login Required</h1>
+          <p className="sub">Please sign in to track your portfolio.</p>
+          <Link className="btn primary" href="/login">
+            Sign In
+          </Link>
         </article>
       </section>
     );

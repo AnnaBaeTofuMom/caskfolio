@@ -54,7 +54,7 @@ export function PhoneVerificationForm() {
   }
 
   return (
-    <form className="card form-grid" onSubmit={verifyCode}>
+    <form suppressHydrationWarning className="card form-grid" onSubmit={verifyCode}>
       <h2>Phone Verification</h2>
       <label>
         Email

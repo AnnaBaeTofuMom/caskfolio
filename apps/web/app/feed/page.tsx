@@ -9,6 +9,11 @@ const fallbackItems: FeedCard[] = [
     assetId: 'asset-1',
     owner: { id: 'u1', username: 'maltlover', name: 'Malt Lover' },
     title: 'Macallan 18 Sherry Oak',
+    productLine: 'Sherry Oak',
+    hasBox: true,
+    purchasePrice: 330000,
+    currentValue: 368000,
+    imageUrl: 'https://images.unsplash.com/photo-1569529465841-dfecdab7503b?w=800&q=80',
     caption: 'Vintage shelf update',
     trustedPrice: 368000,
     priceMethod: 'WEIGHTED_MEDIAN',
@@ -26,10 +31,10 @@ export default async function FeedPage() {
   const items = data?.items?.length ? data.items : fallbackItems;
 
   return (
-    <section>
+    <section className="feed-wrap">
       <h1>Community Feed</h1>
-      <p className="sub">70% following + 30% recommended public collections</p>
-      <div className="grid">
+      <p className="sub">Explore collections from fellow whisky enthusiasts</p>
+      <div className="feed-list">
         {items.map((item) => (
           <FeedCardItem key={item.assetId} card={item} />
         ))}

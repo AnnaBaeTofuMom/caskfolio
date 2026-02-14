@@ -10,6 +10,10 @@ export interface FeedCard {
   };
   imageUrl?: string;
   title: string;
+  productLine?: string;
+  hasBox?: boolean;
+  purchasePrice?: number;
+  currentValue?: number;
   caption?: string;
   trustedPrice?: number;
   priceMethod: 'WEIGHTED_MEDIAN' | 'EXTERNAL_MEDIAN' | 'INTERNAL_MEDIAN' | 'HIDDEN';

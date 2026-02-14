@@ -96,6 +96,9 @@ export class SocialService {
         const displayName =
           raw.customProductName ??
           [raw.variant?.product.brand.name, raw.variant?.product.name, raw.variant?.specialTag].filter(Boolean).join(' ');
+        const purchasePrice = Number(raw.purchasePrice ?? 0);
+        const trustedPrice = raw.variant?.priceAggregate?.trustedPrice ? Number(raw.variant.priceAggregate.trustedPrice) : null;
+        const currentValue = trustedPrice ?? purchasePrice;
 
         return {
           assetId: raw.id,
@@ -107,8 +110,12 @@ export class SocialService {
           },
           imageUrl: raw.photoUrl ?? undefined,
           title: displayName || 'Unknown Whisky',
+          productLine: raw.variant?.product?.name ?? undefined,
+          hasBox: Boolean(raw.boxAvailable),
+          purchasePrice,
+          currentValue,
           caption: raw.caption ?? undefined,
-          trustedPrice: raw.variant?.priceAggregate?.trustedPrice ? Number(raw.variant.priceAggregate.trustedPrice) : null,
+          trustedPrice,
           priceMethod: raw.variant?.priceAggregate?.method ?? 'HIDDEN',
           confidence: raw.variant?.priceAggregate?.confidence ?? 0,
           isFollowing: followingIds.includes(raw.owner.id),

@@ -77,6 +77,46 @@ main {
   padding: clamp(1.2rem, 4vw, 3rem);
 }
 
+.hero-large {
+  text-align: center;
+  margin-bottom: 1.4rem;
+}
+
+.section-block {
+  padding: 2rem 0;
+}
+
+.section-head {
+  text-align: center;
+  margin-bottom: 1rem;
+}
+
+.feature-card {
+  padding: 1.2rem;
+}
+
+.cta-band {
+  margin-top: 1rem;
+  background: linear-gradient(120deg, #c67c3d, #b46f2f);
+  border-radius: 18px;
+  padding: 2rem;
+  color: #fff8ef;
+  text-align: center;
+}
+
+.cta-band h2 {
+  margin: 0 0 0.6rem;
+}
+
+.cta-band p {
+  margin: 0 0 1rem;
+}
+
+.cta-band .cta-band-btn {
+  background: #fff;
+  color: #77471f;
+}
+
 .eyebrow {
   text-transform: uppercase;
   color: var(--accent);
@@ -131,6 +171,44 @@ h1 {
   font-size: 0.9rem;
 }
 
+.feed-wrap {
+  max-width: 920px;
+  margin: 0 auto;
+}
+
+.feed-list {
+  display: grid;
+  gap: 1rem;
+}
+
+.feed-grid {
+  display: grid;
+  grid-template-columns: 280px 1fr;
+  gap: 1rem;
+}
+
+.feed-content {
+  padding: 0.4rem 0;
+}
+
+.feed-badges {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  margin: 0.6rem 0;
+}
+
+.badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.25rem 0.5rem;
+  border-radius: 999px;
+  background: #efe6d8;
+  color: #4d3a2a;
+  font-size: 0.78rem;
+  font-weight: 700;
+}
+
 .feed-image {
   width: 100%;
   height: 220px;
@@ -148,6 +226,12 @@ h1 {
   background: linear-gradient(145deg, #f0e7da, #e8dac9);
   color: #6d6257;
   font-weight: 700;
+}
+
+.feed-image-side {
+  height: 100%;
+  min-height: 240px;
+  margin-bottom: 0;
 }
 
 .price-row {
@@ -301,5 +385,13 @@ select {
   nav {
     gap: 0.6rem;
     font-size: 0.92rem;
+  }
+
+  .feed-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .feed-image-side {
+    min-height: 180px;
   }
 }

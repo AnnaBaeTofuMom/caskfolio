@@ -165,7 +165,7 @@ export function AdminOpsPanel({ users }: { users: AdminUser[] }) {
     <article className="card">
       <h2>Admin Operations</h2>
       <div className="grid">
-        <form className="card form-grid" onSubmit={onRoleSubmit}>
+        <form suppressHydrationWarning className="card form-grid" onSubmit={onRoleSubmit}>
           <h3>User Role</h3>
           <label>
             User
@@ -189,7 +189,7 @@ export function AdminOpsPanel({ users }: { users: AdminUser[] }) {
           </button>
         </form>
 
-        <form className="card form-grid" onSubmit={onManualPrice}>
+        <form suppressHydrationWarning className="card form-grid" onSubmit={onManualPrice}>
           <h3>Manual Price Snapshot</h3>
           <label>
             Variant ID
@@ -212,7 +212,7 @@ export function AdminOpsPanel({ users }: { users: AdminUser[] }) {
           </button>
         </form>
 
-        <form className="card form-grid" onSubmit={onBrandUpdate}>
+        <form suppressHydrationWarning className="card form-grid" onSubmit={onBrandUpdate}>
           <h3>Brand Update/Delete</h3>
           <label>
             Brand ID
@@ -230,7 +230,7 @@ export function AdminOpsPanel({ users }: { users: AdminUser[] }) {
           </button>
         </form>
 
-        <form className="card form-grid" onSubmit={onProductUpdate}>
+        <form suppressHydrationWarning className="card form-grid" onSubmit={onProductUpdate}>
           <h3>Product Update/Delete</h3>
           <label>
             Product ID
@@ -248,7 +248,7 @@ export function AdminOpsPanel({ users }: { users: AdminUser[] }) {
           </button>
         </form>
 
-        <form className="card form-grid" onSubmit={onVariantUpdate}>
+        <form suppressHydrationWarning className="card form-grid" onSubmit={onVariantUpdate}>
           <h3>Variant Update/Delete</h3>
           <label>
             Variant ID
