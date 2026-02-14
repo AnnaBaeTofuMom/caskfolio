@@ -5,7 +5,7 @@
   "scripts": {
     "dev": "next dev -H localhost -p 3000",
     "build": "next build",
-    "start": "next start -H localhost -p 3000",
+    "start": "next start -H 0.0.0.0 -p 3000",
     "test": "vitest run",
     "lint": "echo 'lint web: configure eslint'",
     "typecheck": "tsc -p tsconfig.json --noEmit"
