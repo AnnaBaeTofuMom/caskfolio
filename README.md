@@ -109,6 +109,10 @@ pnpm dev
   - Includes expanded major brand sub-lines (e.g., Macallan line families) so Product Line/Version selectors are populated.
   - Even when minimum counts are already satisfied, known catalog entries are still upsert-synced on boot (idempotent sync mode).
   - Controlled by `AUTO_SEED_BRANDS_ON_BOOT` (default enabled).
+  - WhiskyHunter sync:
+    - On boot, service pulls from `https://whiskyhunter.net/api/` (distillery + search endpoints) and upserts discovered lines/variants.
+    - Sync is additive-only (no delete/shrink path). Existing catalog rows are never removed by sync.
+    - Controlled by `WHISKYHUNTER_SYNC_ON_BOOT` (default enabled).
 - Crawler bootstrap/scheduling:
   - Daily scheduled crawl remains `09:00 KST`.
   - On app boot, crawler also runs one immediate pass by default (`CRAWLER_RUN_ON_BOOT=true`).

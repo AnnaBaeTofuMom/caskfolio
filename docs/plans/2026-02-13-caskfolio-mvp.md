@@ -144,6 +144,8 @@
   - product lines and baseline variants are also upserted
   - major brands include expanded sub-line coverage (e.g., Macallan families)
   - boot sequence always performs idempotent sync upserts for known catalog entries (not only low-count backfill)
+  - WhiskyHunter API boot sync is applied additively for discovered line/variant names (`https://whiskyhunter.net/api/`)
+    - no delete/shrink step in sync flow
   - controlled by env `AUTO_SEED_BRANDS_ON_BOOT` (enabled by default)
 
 ### Crawler runtime reliability updates

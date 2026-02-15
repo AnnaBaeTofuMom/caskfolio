@@ -1,7 +1,20 @@
-import { describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { CatalogBrandSeedService } from '../src/bootstrap/catalog-brand-seed.service.js';
 
 describe('CatalogBrandSeedService', () => {
+  const originalFetch = global.fetch;
+
+  beforeEach(() => {
+    global.fetch = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => []
+    } as never);
+  });
+
+  afterEach(() => {
+    global.fetch = originalFetch;
+  });
+
   it('seeds products and variants when catalog depth is insufficient', async () => {
     const prisma: any = {
       brand: {
@@ -55,6 +68,52 @@ describe('CatalogBrandSeedService', () => {
     expect(macallanLines).toContain('Sherry Oak');
     expect(macallanLines).toContain('Double Cask');
     expect(macallanLines).toContain('Rare Cask');
+  });
+
+  it('syncs WhiskyHunter lines additively without deleting existing catalog', async () => {
+    global.fetch = vi.fn().mockImplementation(async (url: string) => {
+      if (url.includes('/distilleries_info')) {
+        return {
+          ok: true,
+          json: async () => [{ distillery: 'The Macallan', region: 'Speyside' }]
+        } as never;
+      }
+      if (url.includes('/search')) {
+        return {
+          ok: true,
+          json: async () => [{ name: 'The Macallan Double Cask 12' }, { name: 'The Macallan Rare Cask' }]
+        } as never;
+      }
+      return { ok: true, json: async () => [] } as never;
+    });
+
+    const prisma: any = {
+      brand: {
+        count: vi.fn().mockResolvedValueOnce(150).mockResolvedValueOnce(150),
+        upsert: vi.fn().mockResolvedValue({ id: 'b-mac' })
+      },
+      product: {
+        count: vi.fn().mockResolvedValueOnce(200).mockResolvedValueOnce(210),
+        upsert: vi.fn().mockResolvedValue({ id: 'p-mac' })
+      },
+      variant: {
+        count: vi.fn().mockResolvedValueOnce(200).mockResolvedValueOnce(220),
+        findFirst: vi.fn().mockResolvedValue(null),
+        create: vi.fn().mockResolvedValue({ id: 'v-mac' }),
+        deleteMany: vi.fn()
+      }
+    };
+
+    const service = new CatalogBrandSeedService(prisma);
+    await service.onApplicationBootstrap();
+
+    const lineNames = prisma.product.upsert.mock.calls
+      .map((call: any[]) => call[0]?.where?.brandId_name?.name)
+      .filter((name: string | undefined) => typeof name === 'string');
+
+    expect(lineNames.some((name: string) => name.includes('Double Cask'))).toBe(true);
+    expect(lineNames.some((name: string) => name.includes('Rare Cask'))).toBe(true);
+    expect(prisma.variant.deleteMany).not.toHaveBeenCalled();
   });
 
   it('skips seeding when feature flag is disabled', async () => {
