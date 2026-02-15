@@ -157,6 +157,36 @@ export function MyAssetsPanel({
     }
   }
 
+  async function deleteAsset(assetId: string, type: 'asset' | 'post') {
+    if (typeof window !== 'undefined') {
+      const ok = window.confirm(type === 'post' ? '이 피드를 삭제할까요?' : '이 자산을 삭제할까요?');
+      if (!ok) return;
+    }
+
+    setUpdatingAssetId(assetId);
+    setStatus(type === 'post' ? 'Deleting post...' : 'Deleting asset...');
+    try {
+      const response = await fetch(`${API_BASE}/assets/${assetId}`, {
+        method: 'DELETE',
+        headers: {
+          'x-user-email': userEmail
+        }
+      });
+
+      if (!response.ok) {
+        setStatus(type === 'post' ? 'Failed to delete post' : 'Failed to delete asset');
+        return;
+      }
+
+      await loadAssets(userEmail);
+      setStatus(type === 'post' ? 'Post deleted' : 'Asset deleted');
+    } catch {
+      setStatus(type === 'post' ? 'Failed to delete post' : 'Failed to delete asset');
+    } finally {
+      setUpdatingAssetId('');
+    }
+  }
+
   const postItems = assets.filter((asset) => asset.isFeedPost || (asset.purchasePrice <= 0 && Boolean(asset.caption)));
   const postIdSet = new Set(postItems.map((post) => post.id));
   const whiskyItems = assets.filter((asset) => !postIdSet.has(asset.id));
@@ -221,6 +251,9 @@ export function MyAssetsPanel({
                         Remove Photo
                       </button>
                     ) : null}
+                    <button className="btn ghost" type="button" onClick={() => deleteAsset(asset.id, 'asset')} disabled={updatingAssetId === asset.id}>
+                      Delete Asset
+                    </button>
                     <label className="visibility-toggle" aria-label={`Toggle visibility for ${asset.displayName}`}>
                       <span>Public in feed</span>
                       <input
@@ -281,6 +314,9 @@ export function MyAssetsPanel({
                           Remove Photo
                         </button>
                       ) : null}
+                      <button className="btn ghost" type="button" onClick={() => deleteAsset(post.id, 'post')} disabled={updatingAssetId === post.id}>
+                        Delete Post
+                      </button>
                       <label className="visibility-toggle" aria-label={`Toggle visibility for ${post.displayName}`}>
                         <span>Public in feed</span>
                         <input

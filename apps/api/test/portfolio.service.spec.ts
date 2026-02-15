@@ -48,7 +48,7 @@ describe('PortfolioService', () => {
     await withDb.summary('demo@caskfolio.com');
 
     expect((prisma as any).whiskyAsset.findMany).toHaveBeenCalledWith({
-      where: { userId: 'u1', isFeedPost: false },
+      where: { userId: 'u1', isFeedPost: false, deletedAt: null },
       include: { variant: { include: { priceAggregate: true } } }
     });
   });
@@ -67,7 +67,7 @@ describe('PortfolioService', () => {
     await withDb.chart('demo@caskfolio.com');
 
     expect((prisma as any).whiskyAsset.findMany).toHaveBeenCalledWith({
-      where: { userId: 'u1', isFeedPost: false },
+      where: { userId: 'u1', isFeedPost: false, deletedAt: null },
       include: { variant: { include: { priceAggregate: true } } },
       orderBy: { purchaseDate: 'asc' }
     });
@@ -90,7 +90,7 @@ describe('PortfolioService', () => {
     await withDb.createShareLink('demo@caskfolio.com', []);
 
     expect((prisma as any).whiskyAsset.findMany).toHaveBeenCalledWith({
-      where: { userId: 'u1', visibility: 'PUBLIC', isFeedPost: false },
+      where: { userId: 'u1', visibility: 'PUBLIC', isFeedPost: false, deletedAt: null },
       select: { id: true },
       take: 30
     });

@@ -53,6 +53,7 @@ export class SocialService {
     const followingIds = following.map((f: { followingId: string }) => f.followingId);
     const rawAssets = await this.prisma.whiskyAsset.findMany({
       where: {
+        deletedAt: null,
         visibility: 'PUBLIC',
         OR: [{ isFeedPost: true }, { purchasePrice: { lte: 0 }, caption: { not: null } }],
         ...(cursorFilter ?? {})
@@ -278,6 +279,7 @@ export class SocialService {
       where: {
         id: assetId,
         userId: me.id,
+        deletedAt: null,
         OR: [{ isFeedPost: true }, { purchasePrice: { lte: 0 }, caption: { not: null } }]
       }
     });
@@ -303,6 +305,7 @@ export class SocialService {
       where: {
         id: assetId,
         userId: me.id,
+        deletedAt: null,
         OR: [{ isFeedPost: true }, { purchasePrice: { lte: 0 }, caption: { not: null } }]
       }
     });
@@ -311,6 +314,7 @@ export class SocialService {
     await this.prisma.whiskyAsset.update({
       where: { id: assetId },
       data: {
+        deletedAt: new Date(),
         visibility: 'PRIVATE'
       }
     });
@@ -324,6 +328,7 @@ export class SocialService {
       where: {
         id: assetId,
         userId: me.id,
+        deletedAt: null,
         OR: [{ isFeedPost: true }, { purchasePrice: { lte: 0 }, caption: { not: null } }]
       }
     });
@@ -418,7 +423,7 @@ export class SocialService {
 
     const [assets, followerCount, followingCount] = await Promise.all([
       this.prisma.whiskyAsset.findMany({
-        where: { userId: user.id, visibility: 'PUBLIC', isFeedPost: false },
+        where: { userId: user.id, visibility: 'PUBLIC', isFeedPost: false, deletedAt: null },
         include: {
           variant: {
             include: { product: { include: { brand: true } }, priceAggregate: true }
@@ -524,6 +529,7 @@ export class SocialService {
   async topCollectors(limit = 10) {
     const [assets, users] = await Promise.all([
       this.prisma.whiskyAsset.findMany({
+        where: { deletedAt: null },
         select: {
           userId: true,
           isFeedPost: true,
@@ -587,6 +593,7 @@ export class SocialService {
     const asset = await this.prisma.whiskyAsset.findFirst({
       where: {
         id: assetId,
+        deletedAt: null,
         visibility: 'PUBLIC',
         OR: [{ isFeedPost: true }, { purchasePrice: { lte: 0 }, caption: { not: null } }]
       }

@@ -80,7 +80,7 @@ export class AssetsService {
 
   async updateAsset(userEmail: string, assetId: string, input: Partial<CreateAssetInput>) {
     const user = await this.ensureUser(userEmail);
-    const existing = await this.prisma.whiskyAsset.findFirst({ where: { id: assetId, userId: user.id } });
+    const existing = await this.prisma.whiskyAsset.findFirst({ where: { id: assetId, userId: user.id, deletedAt: null } });
 
     if (!existing) {
       throw new NotFoundException('asset not found');
@@ -109,7 +109,7 @@ export class AssetsService {
   async myAssets(userEmail: string) {
     const user = await this.ensureUser(userEmail);
     const assets = await this.prisma.whiskyAsset.findMany({
-      where: { userId: user.id },
+      where: { userId: user.id, deletedAt: null },
       include: {
         variant: {
           include: {
@@ -138,6 +138,27 @@ export class AssetsService {
         [asset.variant?.product.brand.name, asset.variant?.product.name, asset.variant?.specialTag].filter(Boolean).join(' '),
       trustedPrice: asset.variant?.priceAggregate?.trustedPrice ? Number(asset.variant.priceAggregate.trustedPrice) : null
     }));
+  }
+
+  async deleteAsset(userEmail: string, assetId: string) {
+    const user = await this.ensureUser(userEmail);
+    const existing = await this.prisma.whiskyAsset.findFirst({
+      where: { id: assetId, userId: user.id, deletedAt: null }
+    });
+
+    if (!existing) {
+      throw new NotFoundException('asset not found');
+    }
+
+    await this.prisma.whiskyAsset.update({
+      where: { id: assetId },
+      data: {
+        deletedAt: new Date(),
+        visibility: 'PRIVATE'
+      }
+    });
+
+    return { deleted: true, assetId };
   }
 
   async resetMyAssets(userEmail: string) {

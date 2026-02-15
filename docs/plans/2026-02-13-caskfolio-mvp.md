@@ -161,6 +161,9 @@
 
 ### Asset vs Feed separation policy update
 - Added `WhiskyAsset.isFeedPost` for explicit domain separation.
+- Added `WhiskyAsset.deletedAt` soft-delete semantics.
+  - My Assets can delete both collection assets and feed posts via soft delete.
+  - Portfolio/feed/profile/share queries exclude soft-deleted rows.
 - Behavior:
   - asset registration path persists records as non-feed assets.
   - feed composer path persists records as feed posts.

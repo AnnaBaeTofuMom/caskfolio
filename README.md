@@ -119,5 +119,9 @@ pnpm dev
 - Feed timeline only queries feed-post records (plus legacy fallback condition for old posts).
 - Public collection/profile and portfolio ranking exclude feed-post records from asset valuation context.
 - Portfolio dashboard summary/chart and share-link fallback selection now also exclude `isFeedPost=true` rows.
+- Soft delete behavior:
+  - `DELETE /api/assets/:id` now performs soft delete (`WhiskyAsset.deletedAt` set, visibility forced to `PRIVATE`).
+  - Works for both collection assets and feed-post rows from the My Assets UI.
+  - Feed timeline, portfolio summary/chart, public profile assets, and share payloads exclude soft-deleted rows.
 - Operational note:
-  - apply schema change before deploy (`prisma db push` or migration) to add `isFeedPost` column.
+  - apply schema change before deploy (`prisma db push` or migration) to add `isFeedPost` and `deletedAt` columns.

@@ -175,6 +175,7 @@ describe('SocialService', () => {
 
     const query = prisma.whiskyAsset.findMany.mock.calls[0]?.[0];
     expect(query?.where?.visibility).toBe('PUBLIC');
+    expect(query?.where?.deletedAt).toBeNull();
     expect(Array.isArray(query?.where?.OR)).toBe(true);
   });
 });

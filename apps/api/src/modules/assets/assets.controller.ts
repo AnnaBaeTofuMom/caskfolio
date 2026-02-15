@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Headers, Param, Patch, Post, UnauthorizedException } from '@nestjs/common';
+import { Body, Controller, Delete, Get, Headers, Param, Patch, Post, UnauthorizedException } from '@nestjs/common';
 import { AssetsService } from './assets.service.js';
 
 @Controller('assets')
@@ -25,5 +25,11 @@ export class AssetsController {
   myAssets(@Headers('x-user-email') userEmail: string | undefined) {
     if (!userEmail) throw new UnauthorizedException('Missing user context');
     return this.assetsService.myAssets(userEmail);
+  }
+
+  @Delete(':id')
+  deleteAsset(@Headers('x-user-email') userEmail: string | undefined, @Param('id') id: string) {
+    if (!userEmail) throw new UnauthorizedException('Missing user context');
+    return this.assetsService.deleteAsset(userEmail, id);
   }
 }

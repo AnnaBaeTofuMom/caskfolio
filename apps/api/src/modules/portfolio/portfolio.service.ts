@@ -26,7 +26,7 @@ export class PortfolioService {
   async summary(userEmail: string) {
     const user = await this.ensureUser(userEmail);
     const assets = await this.prisma.whiskyAsset.findMany({
-      where: { userId: user.id, isFeedPost: false },
+      where: { userId: user.id, isFeedPost: false, deletedAt: null },
       include: { variant: { include: { priceAggregate: true } } }
     });
 
@@ -41,7 +41,7 @@ export class PortfolioService {
   async chart(userEmail: string) {
     const user = await this.ensureUser(userEmail);
     const assets = await this.prisma.whiskyAsset.findMany({
-      where: { userId: user.id, isFeedPost: false },
+      where: { userId: user.id, isFeedPost: false, deletedAt: null },
       include: { variant: { include: { priceAggregate: true } } },
       orderBy: { purchaseDate: 'asc' }
     });
@@ -67,7 +67,7 @@ export class PortfolioService {
       ? selectedAssetIds
       : (
           await this.prisma.whiskyAsset.findMany({
-            where: { userId: user.id, visibility: 'PUBLIC', isFeedPost: false },
+            where: { userId: user.id, visibility: 'PUBLIC', isFeedPost: false, deletedAt: null },
             select: { id: true },
             take: 30
           })
@@ -101,7 +101,8 @@ export class PortfolioService {
     const assets = await this.prisma.whiskyAsset.findMany({
       where: {
         id: { in: share.selectedAssetIds },
-        visibility: 'PUBLIC'
+        visibility: 'PUBLIC',
+        deletedAt: null
       },
       include: {
         variant: { include: { product: { include: { brand: true } }, priceAggregate: true } }
