@@ -107,6 +107,7 @@ pnpm dev
 - Catalog bootstrap:
   - API auto-seeds catalog depth on boot: brands + product lines + baseline variants.
   - Includes expanded major brand sub-lines (e.g., Macallan line families) so Product Line/Version selectors are populated.
+  - Even when minimum counts are already satisfied, known catalog entries are still upsert-synced on boot (idempotent sync mode).
   - Controlled by `AUTO_SEED_BRANDS_ON_BOOT` (default enabled).
 - Crawler bootstrap/scheduling:
   - Daily scheduled crawl remains `09:00 KST`.

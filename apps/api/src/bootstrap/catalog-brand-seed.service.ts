@@ -211,7 +211,6 @@ export class CatalogBrandSeedService implements OnApplicationBootstrap {
 
     const shouldSeedBrands = brandCount < MIN_BRAND_COUNT;
     const shouldSeedCatalog = productCount < MIN_PRODUCT_COUNT || variantCount < MIN_VARIANT_COUNT;
-    if (!shouldSeedBrands && !shouldSeedCatalog) return;
 
     for (const name of CATALOG_BRANDS) {
       await this.prisma.brand.upsert({
@@ -264,7 +263,7 @@ export class CatalogBrandSeedService implements OnApplicationBootstrap {
     ]);
 
     this.logger.log(
-      `Catalog auto-seed completed brands:${brandCount}->${nextBrandCount}, products:${productCount}->${nextProductCount}, variants:${variantCount}->${nextVariantCount}`
+      `Catalog auto-seed completed brands:${brandCount}->${nextBrandCount}, products:${productCount}->${nextProductCount}, variants:${variantCount}->${nextVariantCount}, mode=${shouldSeedBrands || shouldSeedCatalog ? 'backfill' : 'sync'}`
     );
   }
 }

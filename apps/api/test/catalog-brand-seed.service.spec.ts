@@ -27,6 +27,36 @@ describe('CatalogBrandSeedService', () => {
     expect(prisma.variant.create).toHaveBeenCalled();
   });
 
+  it('includes expanded Macallan sub-lines in product upserts', async () => {
+    const prisma: any = {
+      brand: {
+        count: vi.fn().mockResolvedValueOnce(120).mockResolvedValueOnce(120),
+        upsert: vi.fn().mockResolvedValue({ id: 'macallan-brand' })
+      },
+      product: {
+        count: vi.fn().mockResolvedValueOnce(200).mockResolvedValueOnce(200),
+        upsert: vi.fn().mockResolvedValue({ id: 'line-1' })
+      },
+      variant: {
+        count: vi.fn().mockResolvedValueOnce(300).mockResolvedValueOnce(300),
+        findFirst: vi.fn().mockResolvedValue(null),
+        create: vi.fn().mockResolvedValue({ id: 'v1' })
+      }
+    };
+
+    const service = new CatalogBrandSeedService(prisma);
+    await service.onApplicationBootstrap();
+
+    const productCalls = prisma.product.upsert.mock.calls.map((call: any[]) => call[0]);
+    const macallanLines = productCalls
+      .map((payload: any) => payload?.where?.brandId_name?.name)
+      .filter((name: string | undefined) => typeof name === 'string');
+
+    expect(macallanLines).toContain('Sherry Oak');
+    expect(macallanLines).toContain('Double Cask');
+    expect(macallanLines).toContain('Rare Cask');
+  });
+
   it('skips seeding when feature flag is disabled', async () => {
     const prisma: any = {
       brand: { count: vi.fn(), upsert: vi.fn() },
