@@ -34,7 +34,7 @@ describe('PortfolioService', () => {
     expect(result.selectedAssetIds).toEqual(['a1', 'a2']);
   });
 
-  it('summary excludes feed posts from portfolio totals', async () => {
+  it('summary aggregates only owned assets', async () => {
     const prisma = {
       user: {
         findUnique: vi.fn().mockResolvedValue({ id: 'u1', email: 'demo@caskfolio.com', username: 'demo', name: 'Demo' })
@@ -48,12 +48,12 @@ describe('PortfolioService', () => {
     await withDb.summary('demo@caskfolio.com');
 
     expect((prisma as any).whiskyAsset.findMany).toHaveBeenCalledWith({
-      where: { userId: 'u1', isFeedPost: false, deletedAt: null },
+      where: { userId: 'u1', deletedAt: null },
       include: { variant: { include: { priceAggregate: true } } }
     });
   });
 
-  it('chart excludes feed posts from time series', async () => {
+  it('chart aggregates only owned assets', async () => {
     const prisma = {
       user: {
         findUnique: vi.fn().mockResolvedValue({ id: 'u1', email: 'demo@caskfolio.com', username: 'demo', name: 'Demo' })
@@ -67,13 +67,13 @@ describe('PortfolioService', () => {
     await withDb.chart('demo@caskfolio.com');
 
     expect((prisma as any).whiskyAsset.findMany).toHaveBeenCalledWith({
-      where: { userId: 'u1', isFeedPost: false, deletedAt: null },
+      where: { userId: 'u1', deletedAt: null },
       include: { variant: { include: { priceAggregate: true } } },
       orderBy: { purchaseDate: 'asc' }
     });
   });
 
-  it('share link fallback excludes feed posts from selected assets', async () => {
+  it('share link fallback selects public owned assets', async () => {
     const prisma = {
       user: {
         findUnique: vi.fn().mockResolvedValue({ id: 'u1', email: 'demo@caskfolio.com', username: 'demo', name: 'Demo' })
@@ -90,7 +90,7 @@ describe('PortfolioService', () => {
     await withDb.createShareLink('demo@caskfolio.com', []);
 
     expect((prisma as any).whiskyAsset.findMany).toHaveBeenCalledWith({
-      where: { userId: 'u1', visibility: 'PUBLIC', isFeedPost: false, deletedAt: null },
+      where: { userId: 'u1', visibility: 'PUBLIC', deletedAt: null },
       select: { id: true },
       take: 30
     });

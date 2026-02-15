@@ -177,13 +177,13 @@
   - follower/following detail endpoints require authenticated user context header (`x-user-email`).
 
 ### Asset vs Feed separation policy update
-- Added `WhiskyAsset.isFeedPost` for explicit domain separation.
-- Added `WhiskyAsset.deletedAt` soft-delete semantics.
-  - My Assets can delete both collection assets and feed posts via soft delete.
-  - Portfolio/feed/profile/share queries exclude soft-deleted rows.
-- Behavior:
-  - asset registration path persists records as non-feed assets.
-  - feed composer path persists records as feed posts.
-  - feed timeline excludes registered assets from appearing as posts.
-- Legacy compatibility:
-  - old feed-like records are still readable through fallback filter conditions.
+- Domain model is now hard-separated:
+  - collection assets persist in `WhiskyAsset`
+  - feed posts persist in `FeedPost`
+- `Widget=ASSET` is represented as `FeedPost.linkedAssetId` (reference only).
+- Soft delete semantics:
+  - `WhiskyAsset.deletedAt` for owned assets
+  - `FeedPost.deletedAt` for feed posts
+- Query boundaries:
+  - portfolio/profile asset surfaces read only `WhiskyAsset`
+  - feed timeline/interactions read only `FeedPost`

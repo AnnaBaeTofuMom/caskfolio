@@ -54,6 +54,7 @@ model User {
   createdAt      DateTime      @default(now())
   role           Role          @default(USER)
   assets         WhiskyAsset[]
+  feedPosts      FeedPost[]
   followers      Follow[]      @relation("followers")
   following      Follow[]      @relation("following")
   outgoingTrades OwnershipHistory[] @relation("previousOwner")
@@ -84,7 +85,7 @@ model Notification {
   readAt      DateTime?
   user        User        @relation("NotificationRecipient", fields: [userId], references: [id], onDelete: Cascade)
   actor       User?       @relation("NotificationActor", fields: [actorId], references: [id], onDelete: SetNull)
-  asset       WhiskyAsset? @relation(fields: [assetId], references: [id], onDelete: SetNull)
+  asset       FeedPost? @relation(fields: [assetId], references: [id], onDelete: SetNull)
 
   @@index([userId, createdAt])
   @@index([readAt])
@@ -129,6 +130,7 @@ model Variant {
   region           String?
   specialTag       String?
   assets           WhiskyAsset[]
+  feedPosts        FeedPost[]
   marketSnapshots  MarketPriceSnapshot[]
   priceAggregate   PriceAggregate?
   internalSnapshots InternalPriceSnapshot[]
@@ -152,23 +154,45 @@ model WhiskyAsset {
   photoUrls         String[]         @default([])
   caption           String?
   visibility        Visibility       @default(PRIVATE)
-  isFeedPost        Boolean          @default(false)
   deletedAt         DateTime?
   createdAt         DateTime         @default(now())
   owner             User             @relation(fields: [userId], references: [id], onDelete: Cascade)
   variant           Variant?         @relation(fields: [variantId], references: [id], onDelete: SetNull)
+  linkedFeedPosts   FeedPost[]       @relation("LinkedAssetPosts")
   ownershipHistory  OwnershipHistory[]
-  feedScore         FeedScore?
-  likes             FeedLike[]
-  comments          FeedComment[]
-  poll              FeedPoll?
-  notifications     Notification[]
 
   @@index([userId, createdAt])
   @@index([variantId])
   @@index([visibility])
-  @@index([isFeedPost, visibility, createdAt])
   @@index([deletedAt, createdAt])
+}
+
+model FeedPost {
+  id             String      @id @default(uuid())
+  userId         String
+  variantId      String?
+  linkedAssetId  String?
+  title          String
+  body           String
+  photoUrl       String?
+  photoUrls      String[]    @default([])
+  visibility     Visibility  @default(PUBLIC)
+  deletedAt      DateTime?
+  createdAt      DateTime    @default(now())
+  updatedAt      DateTime    @updatedAt
+  owner          User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  variant        Variant?    @relation(fields: [variantId], references: [id], onDelete: SetNull)
+  linkedAsset    WhiskyAsset? @relation("LinkedAssetPosts", fields: [linkedAssetId], references: [id], onDelete: SetNull)
+  likes          FeedLike[]
+  comments       FeedComment[]
+  poll           FeedPoll?
+  notifications  Notification[]
+  feedScore      FeedScore?
+
+  @@index([userId, createdAt])
+  @@index([visibility, createdAt])
+  @@index([deletedAt, createdAt])
+  @@index([linkedAssetId])
 }
 
 model FeedLike {
@@ -176,7 +200,7 @@ model FeedLike {
   assetId   String
   userId    String
   createdAt DateTime   @default(now())
-  asset     WhiskyAsset @relation(fields: [assetId], references: [id], onDelete: Cascade)
+  asset     FeedPost @relation(fields: [assetId], references: [id], onDelete: Cascade)
   user      User       @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@unique([assetId, userId])
@@ -190,7 +214,7 @@ model FeedComment {
   parentCommentId String?
   content   String
   createdAt DateTime   @default(now())
-  asset     WhiskyAsset @relation(fields: [assetId], references: [id], onDelete: Cascade)
+  asset     FeedPost @relation(fields: [assetId], references: [id], onDelete: Cascade)
   user      User       @relation(fields: [userId], references: [id], onDelete: Cascade)
   parentComment FeedComment? @relation("CommentReplies", fields: [parentCommentId], references: [id], onDelete: Cascade)
   replies   FeedComment[] @relation("CommentReplies")
@@ -205,7 +229,7 @@ model FeedPoll {
   question  String
   options   String[]
   createdAt DateTime     @default(now())
-  asset     WhiskyAsset  @relation(fields: [assetId], references: [id], onDelete: Cascade)
+  asset     FeedPost  @relation(fields: [assetId], references: [id], onDelete: Cascade)
   votes     FeedPollVote[]
 }
 
@@ -251,7 +275,7 @@ model FeedScore {
   score         Float
   reasonTag     String
   calculatedAt  DateTime    @default(now())
-  asset         WhiskyAsset @relation(fields: [assetId], references: [id], onDelete: Cascade)
+  asset         FeedPost @relation(fields: [assetId], references: [id], onDelete: Cascade)
 }
 
 model PriceAggregate {

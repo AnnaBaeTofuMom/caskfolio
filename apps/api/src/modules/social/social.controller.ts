@@ -26,6 +26,38 @@ export class SocialController {
     return this.socialService.feed(userEmail, cursor, Number(limit ?? 20));
   }
 
+  @Post('feed')
+  createFeedPost(
+    @Headers('x-user-email') userEmail: string | undefined,
+    @Body()
+    body: {
+      title?: string;
+      body?: string;
+      linkedAssetId?: string;
+      variantId?: string;
+      photoUrl?: string;
+      photoUrls?: string[];
+      visibility?: 'PUBLIC' | 'PRIVATE';
+    }
+  ) {
+    if (!userEmail) throw new UnauthorizedException('Missing user context');
+    return this.socialService.createFeedPost(userEmail, {
+      title: body.title ?? '',
+      body: body.body ?? '',
+      linkedAssetId: body.linkedAssetId,
+      variantId: body.variantId,
+      photoUrl: body.photoUrl,
+      photoUrls: body.photoUrls,
+      visibility: body.visibility
+    });
+  }
+
+  @Get('me/posts')
+  myPosts(@Headers('x-user-email') userEmail: string | undefined) {
+    if (!userEmail) throw new UnauthorizedException('Missing user context');
+    return this.socialService.myPosts(userEmail);
+  }
+
   @Get('top-collectors')
   topCollectors(@Query('limit') limit?: string) {
     return this.socialService.topCollectors(Number(limit ?? 10));

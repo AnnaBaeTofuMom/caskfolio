@@ -128,16 +128,16 @@ pnpm dev
   - `Widget=NONE` / `Widget=POLL` remain available.
 
 ## Feed/Asset Separation Update (2026-02-15)
-- Registered assets and feed posts are now explicitly separated by `WhiskyAsset.isFeedPost`.
-  - Asset registration flow: `isFeedPost=false` (default)
-  - Feed composer publish flow: `isFeedPost=true`
-- Feed timeline only queries feed-post records (plus legacy fallback condition for old posts).
-- Public collection/profile and portfolio ranking exclude feed-post records from asset valuation context.
-- Portfolio dashboard summary/chart and share-link fallback selection now also exclude `isFeedPost=true` rows.
+- Registered assets and feed posts are now physically separated:
+  - collection assets are stored in `WhiskyAsset`
+  - feed posts are stored in `FeedPost`
+- Feed timeline only queries `FeedPost`.
+- Portfolio summary/chart/share selection only query `WhiskyAsset`.
+- `Widget=ASSET` links a feed post to an owned asset by `FeedPost.linkedAssetId` (optional connection, not same entity).
 - Feed card asset widget now renders selected whisky name and product line above price metrics.
 - Soft delete behavior:
-  - `DELETE /api/assets/:id` now performs soft delete (`WhiskyAsset.deletedAt` set, visibility forced to `PRIVATE`).
-  - Works for both collection assets and feed-post rows from the My Assets UI.
-  - Feed timeline, portfolio summary/chart, public profile assets, and share payloads exclude soft-deleted rows.
+  - `DELETE /api/assets/:id` soft-deletes owned assets (`WhiskyAsset.deletedAt`).
+  - `DELETE /api/social/feed/:id/post` soft-deletes feed posts (`FeedPost.deletedAt`).
+  - My Assets UI uses asset delete endpoint, My Posts UI uses feed delete endpoint.
 - Operational note:
-  - apply schema change before deploy (`prisma db push` or migration) to add `isFeedPost` and `deletedAt` columns.
+  - apply schema change before deploy (`prisma db push` or migration) to add the `FeedPost` table and related relations.

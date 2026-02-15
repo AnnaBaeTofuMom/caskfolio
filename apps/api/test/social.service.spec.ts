@@ -110,40 +110,48 @@ describe('SocialService', () => {
       follow: {
         findMany: vi.fn().mockResolvedValue([{ followingId: 'u-following' }])
       },
-      whiskyAsset: {
+      feedPost: {
         findMany: vi
           .fn()
           .mockResolvedValue([
             {
               id: 'a1',
+              title: 'Post A',
               owner: { id: 'u-following', username: 'friend', name: 'Friend', profileImage: null },
-              photoUrl: 'https://img/1.jpg',
-              caption: 'hello',
-              customProductName: 'Bottle A',
+              linkedAsset: null,
               variant: null,
+              photoUrl: 'https://img/1.jpg',
+              photoUrls: [],
+              caption: 'hello',
+              body: 'hello',
+              visibility: 'PUBLIC',
+              likes: [],
+              comments: [],
+              poll: null,
+              _count: { likes: 0, comments: 0 },
               createdAt: new Date('2026-02-14T00:00:00.000Z')
             },
             {
               id: 'a2',
+              title: 'Post B',
               owner: { id: 'u-stranger', username: 'newbie', name: 'Newbie', profileImage: null },
-              photoUrl: null,
-              caption: null,
-              customProductName: 'Bottle B',
+              linkedAsset: null,
               variant: null,
+              photoUrl: null,
+              photoUrls: [],
+              body: null,
+              visibility: 'PUBLIC',
+              likes: [],
+              comments: [],
+              poll: null,
+              _count: { likes: 0, comments: 0 },
               createdAt: new Date('2026-02-14T01:00:00.000Z')
             }
           ])
       }
     };
 
-    const feedService = {
-      mix: vi.fn().mockReturnValue({
-        items: [
-          { id: 'a1', source: 'FOLLOWING' },
-          { id: 'a2', source: 'RECOMMENDED' }
-        ]
-      })
-    } as never;
+    const feedService = { mix: vi.fn() } as never;
 
     const service = new SocialService(prisma, feedService);
     const result = await service.feed('me@caskfolio.com');
@@ -163,7 +171,7 @@ describe('SocialService', () => {
       follow: {
         findMany: vi.fn().mockResolvedValue([])
       },
-      whiskyAsset: {
+      feedPost: {
         findMany: vi.fn().mockResolvedValue([])
       }
     };
@@ -173,9 +181,9 @@ describe('SocialService', () => {
 
     await service.feed('me@caskfolio.com');
 
-    const query = prisma.whiskyAsset.findMany.mock.calls[0]?.[0];
+    const query = prisma.feedPost.findMany.mock.calls[0]?.[0];
     expect(query?.where?.visibility).toBe('PUBLIC');
     expect(query?.where?.deletedAt).toBeNull();
-    expect(Array.isArray(query?.where?.OR)).toBe(true);
+    expect(query?.where?.OR).toBeUndefined();
   });
 });

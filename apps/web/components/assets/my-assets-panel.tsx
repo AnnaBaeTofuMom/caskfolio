@@ -16,7 +16,22 @@ type Asset = {
   photoUrl: string | null;
   caption: string | null;
   visibility: 'PUBLIC' | 'PRIVATE';
-  isFeedPost?: boolean;
+};
+
+type PostItem = {
+  id: string;
+  title: string;
+  body: string;
+  imageUrl: string | null;
+  imageUrls: string[];
+  linkedAssetId?: string;
+  productLine?: string;
+  displayName: string;
+  purchasePrice: number;
+  trustedPrice: number | null;
+  hasBox: boolean;
+  visibility: 'PUBLIC' | 'PRIVATE';
+  createdAt: string;
 };
 
 type MyAssetsPanelProps = {
@@ -38,6 +53,7 @@ export function MyAssetsPanel({
   showShareActions = true
 }: MyAssetsPanelProps) {
   const [assets, setAssets] = useState<Asset[]>([]);
+  const [posts, setPosts] = useState<PostItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [userEmail, setUserEmail] = useState('');
@@ -45,20 +61,27 @@ export function MyAssetsPanel({
   const [status, setStatus] = useState('');
   const [updatingAssetId, setUpdatingAssetId] = useState('');
 
-  async function loadAssets(email: string) {
+  async function loadAssetsAndPosts(email: string) {
     setLoading(true);
     try {
-      const response = await fetch(`${API_BASE}/assets/me`, {
-        headers: { 'x-user-email': email }
-      });
+      const [assetsResponse, postsResponse] = await Promise.all([
+        fetch(`${API_BASE}/assets/me`, {
+          headers: { 'x-user-email': email }
+        }),
+        fetch(`${API_BASE}/social/me/posts`, {
+          headers: { 'x-user-email': email }
+        })
+      ]);
 
-      if (!response.ok) {
+      if (!assetsResponse.ok || !postsResponse.ok) {
         setStatus('Failed to load assets');
         return;
       }
 
-      const data = (await response.json()) as Asset[];
-      setAssets(data);
+      const assetsData = (await assetsResponse.json()) as Asset[];
+      const postsData = (await postsResponse.json()) as PostItem[];
+      setAssets(assetsData);
+      setPosts(postsData);
     } catch {
       setStatus('Please sign in first');
     } finally {
@@ -75,7 +98,7 @@ export function MyAssetsPanel({
     }
     setIsAuthenticated(true);
     setUserEmail(auth.email);
-    void loadAssets(auth.email);
+    void loadAssetsAndPosts(auth.email);
   }, []);
 
   async function toggleVisibility(asset: Asset) {
@@ -96,7 +119,7 @@ export function MyAssetsPanel({
         return;
       }
 
-      await loadAssets(userEmail);
+      await loadAssetsAndPosts(userEmail);
       setStatus('Visibility updated');
     } catch {
       setStatus('Failed to update visibility');
@@ -148,7 +171,7 @@ export function MyAssetsPanel({
         return;
       }
 
-      await loadAssets(userEmail);
+      await loadAssetsAndPosts(userEmail);
       setStatus('Photo removed');
     } catch {
       setStatus('Failed to remove photo');
@@ -166,7 +189,7 @@ export function MyAssetsPanel({
     setUpdatingAssetId(assetId);
     setStatus(type === 'post' ? 'Deleting post...' : 'Deleting asset...');
     try {
-      const response = await fetch(`${API_BASE}/assets/${assetId}`, {
+      const response = await fetch(type === 'post' ? `${API_BASE}/social/feed/${assetId}/post` : `${API_BASE}/assets/${assetId}`, {
         method: 'DELETE',
         headers: {
           'x-user-email': userEmail
@@ -178,7 +201,7 @@ export function MyAssetsPanel({
         return;
       }
 
-      await loadAssets(userEmail);
+      await loadAssetsAndPosts(userEmail);
       setStatus(type === 'post' ? 'Post deleted' : 'Asset deleted');
     } catch {
       setStatus(type === 'post' ? 'Failed to delete post' : 'Failed to delete asset');
@@ -187,11 +210,9 @@ export function MyAssetsPanel({
     }
   }
 
-  const postItems = assets.filter((asset) => asset.isFeedPost || (asset.purchasePrice <= 0 && Boolean(asset.caption)));
-  const postIdSet = new Set(postItems.map((post) => post.id));
-  const whiskyItems = assets.filter((asset) => !postIdSet.has(asset.id));
-  const visiblePosts = showPosts ? (postsPreviewCount > 0 ? postItems.slice(0, postsPreviewCount) : postItems) : [];
-  const hasMorePosts = showPosts && postsPreviewCount > 0 && postItems.length > postsPreviewCount;
+  const whiskyItems = assets;
+  const visiblePosts = showPosts ? (postsPreviewCount > 0 ? posts.slice(0, postsPreviewCount) : posts) : [];
+  const hasMorePosts = showPosts && postsPreviewCount > 0 && posts.length > postsPreviewCount;
 
   return (
     <section className="assets-panel">
@@ -199,7 +220,7 @@ export function MyAssetsPanel({
 
       {loading ? <article className="card">Loading assets...</article> : null}
 
-      {!loading && !assets.length ? <article className="card">No assets yet.</article> : null}
+      {!loading && !assets.length && !posts.length ? <article className="card">No assets yet.</article> : null}
 
       {!loading && showAssets && whiskyItems.length ? (
         <div className="asset-list">
@@ -292,9 +313,9 @@ export function MyAssetsPanel({
               {visiblePosts.map((post) => (
                 <article key={post.id} className="card asset-card">
                   <div className="asset-media">
-                    {post.photoUrl ? (
+                    {post.imageUrl ? (
                       // eslint-disable-next-line @next/next/no-img-element
-                      <img className="asset-photo" src={post.photoUrl} alt={post.displayName} />
+                      <img className="asset-photo" src={post.imageUrl} alt={post.displayName} />
                     ) : (
                       <div className="asset-photo asset-photo-placeholder">{post.displayName}</div>
                     )}
@@ -303,29 +324,15 @@ export function MyAssetsPanel({
                     <div className="asset-row-head">
                       <div>
                         <h3>{post.displayName || 'Untitled Post'}</h3>
-                        <p className="sub">{formatDate(post.purchaseDate)}</p>
+                        <p className="sub">{formatDate(post.createdAt)}</p>
                       </div>
                       <span className="badge">{post.visibility === 'PUBLIC' ? 'Public' : 'Private'}</span>
                     </div>
-                    {post.caption ? <p>{post.caption}</p> : null}
+                    {post.body ? <p>{post.body}</p> : null}
                     <div className="actions asset-actions">
-                      {post.photoUrl ? (
-                        <button className="btn ghost" type="button" onClick={() => removePhoto(post.id)} disabled={updatingAssetId === post.id}>
-                          Remove Photo
-                        </button>
-                      ) : null}
                       <button className="btn ghost" type="button" onClick={() => deleteAsset(post.id, 'post')} disabled={updatingAssetId === post.id}>
                         Delete Post
                       </button>
-                      <label className="visibility-toggle" aria-label={`Toggle visibility for ${post.displayName}`}>
-                        <span>Public in feed</span>
-                        <input
-                          type="checkbox"
-                          checked={post.visibility === 'PUBLIC'}
-                          onChange={() => toggleVisibility(post)}
-                          disabled={updatingAssetId === post.id}
-                        />
-                      </label>
                     </div>
                   </div>
                 </article>

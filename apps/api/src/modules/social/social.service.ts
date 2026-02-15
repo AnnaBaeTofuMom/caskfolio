@@ -2,11 +2,6 @@ import { BadRequestException, Injectable, NotFoundException } from '@nestjs/comm
 import { PrismaService } from '../../prisma/prisma.service.js';
 import { SocialFeedService } from './social-feed.service.js';
 
-interface FeedItem {
-  id: string;
-  source?: 'FOLLOWING' | 'RECOMMENDED';
-}
-
 @Injectable()
 export class SocialService {
   constructor(
@@ -40,6 +35,86 @@ export class SocialService {
     return { followed: false, userId };
   }
 
+  async createFeedPost(
+    userEmail: string,
+    input: {
+      title: string;
+      body: string;
+      linkedAssetId?: string;
+      variantId?: string;
+      photoUrl?: string;
+      photoUrls?: string[];
+      visibility?: 'PUBLIC' | 'PRIVATE';
+    }
+  ) {
+    const me = await this.ensureUser(userEmail);
+    const title = input.title.trim();
+    const body = input.body.trim();
+    if (!title || !body) throw new BadRequestException('title and body are required');
+
+    let linkedAssetId: string | null = null;
+    let variantId: string | null = input.variantId ?? null;
+
+    if (input.linkedAssetId) {
+      const linked = await this.prisma.whiskyAsset.findFirst({
+        where: { id: input.linkedAssetId, userId: me.id, deletedAt: null }
+      });
+      if (!linked) throw new NotFoundException('linked asset not found');
+      linkedAssetId = linked.id;
+      variantId = linked.variantId ?? variantId;
+    }
+
+    const created = await this.prisma.feedPost.create({
+      data: {
+        userId: me.id,
+        title,
+        body,
+        linkedAssetId,
+        variantId,
+        photoUrl: input.photoUrl,
+        photoUrls: input.photoUrls ?? (input.photoUrl ? [input.photoUrl] : []),
+        visibility: input.visibility ?? 'PUBLIC'
+      }
+    });
+
+    await this.createMentionNotifications(me.id, created.id, `${title}\n${body}`);
+
+    return { id: created.id };
+  }
+
+  async myPosts(userEmail: string) {
+    const me = await this.ensureUser(userEmail);
+    const posts = await this.prisma.feedPost.findMany({
+      where: { userId: me.id, deletedAt: null },
+      include: {
+        linkedAsset: { include: { variant: { include: { product: { include: { brand: true } }, priceAggregate: true } } } },
+        variant: { include: { product: { include: { brand: true } }, priceAggregate: true } }
+      },
+      orderBy: { createdAt: 'desc' }
+    });
+
+    return posts.map((post: (typeof posts)[number]) => {
+      const variant = post.variant ?? post.linkedAsset?.variant;
+      return {
+        id: post.id,
+        title: post.title,
+        body: post.body,
+        imageUrl: post.photoUrl ?? null,
+        imageUrls: post.photoUrls ?? [],
+        linkedAssetId: post.linkedAssetId ?? undefined,
+        productLine: variant?.product?.name ?? undefined,
+        displayName:
+          post.linkedAsset?.customProductName ??
+          [variant?.product.brand.name, variant?.product.name, variant?.specialTag].filter(Boolean).join(' '),
+        purchasePrice: post.linkedAsset ? Number(post.linkedAsset.purchasePrice) : 0,
+        trustedPrice: variant?.priceAggregate?.trustedPrice ? Number(variant.priceAggregate.trustedPrice) : null,
+        hasBox: post.linkedAsset?.boxAvailable ?? false,
+        visibility: post.visibility,
+        createdAt: post.createdAt.toISOString()
+      };
+    });
+  }
+
   async feed(userEmail?: string, cursor?: string, limit = 10) {
     const me = userEmail ? await this.ensureUser(userEmail) : null;
     const safeLimit = Math.min(Math.max(Number(limit) || 20, 1), 50);
@@ -51,15 +126,16 @@ export class SocialService {
         })
       : [];
     const followingIds = following.map((f: { followingId: string }) => f.followingId);
-    const rawAssets = await this.prisma.whiskyAsset.findMany({
+
+    const rawPosts = await this.prisma.feedPost.findMany({
       where: {
         deletedAt: null,
         visibility: 'PUBLIC',
-        OR: [{ isFeedPost: true }, { purchasePrice: { lte: 0 }, caption: { not: null } }],
         ...(cursorFilter ?? {})
       },
       include: {
         owner: true,
+        linkedAsset: true,
         variant: { include: { product: { include: { brand: true } }, priceAggregate: true } },
         ...(me ? { likes: { where: { userId: me.id }, select: { id: true } } } : {}),
         comments: {
@@ -75,31 +151,34 @@ export class SocialService {
             }
           }
         },
-        poll: {
-          include: { votes: true }
-        },
+        poll: { include: { votes: true } },
         _count: { select: { likes: true, comments: true } }
       },
       orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
       take: safeLimit + 1
     });
 
-    const hasNextPage = rawAssets.length > safeLimit;
-    const pageAssets = hasNextPage ? rawAssets.slice(0, safeLimit) : rawAssets;
+    const hasNextPage = rawPosts.length > safeLimit;
+    const pagePosts = hasNextPage ? rawPosts.slice(0, safeLimit) : rawPosts;
 
-    const items = pageAssets
+    const items = pagePosts
       .map((raw: any) => {
         if (!raw) return null;
 
+        const variant = raw.variant;
         const displayName =
-          raw.customProductName ??
-          [raw.variant?.product.brand.name, raw.variant?.product.name, raw.variant?.specialTag].filter(Boolean).join(' ');
-        const purchasePrice = Number(raw.purchasePrice ?? 0);
-        const trustedPrice = raw.variant?.priceAggregate?.trustedPrice ? Number(raw.variant.priceAggregate.trustedPrice) : null;
+          raw.linkedAsset?.customProductName ??
+          [variant?.product.brand.name, variant?.product.name, variant?.specialTag].filter(Boolean).join(' ');
+
+        const purchasePrice = raw.linkedAsset ? Number(raw.linkedAsset.purchasePrice ?? 0) : 0;
+        const trustedPrice = variant?.priceAggregate?.trustedPrice ? Number(variant.priceAggregate.trustedPrice) : null;
         const currentValue = trustedPrice ?? purchasePrice;
+
         const pollVotes = raw.poll?.votes ?? [];
         const pollOptions: string[] = raw.poll?.options ?? [];
-        const voteCounts = pollOptions.map((_: string, index: number) => pollVotes.filter((vote: { optionIndex: number }) => vote.optionIndex === index).length);
+        const voteCounts = pollOptions.map((_: string, index: number) =>
+          pollVotes.filter((vote: { optionIndex: number }) => vote.optionIndex === index).length
+        );
         const myVote = me ? pollVotes.find((vote: { userId: string }) => vote.userId === me.id) : undefined;
         const recentComments = [...(raw.comments ?? [])].reverse();
 
@@ -113,15 +192,15 @@ export class SocialService {
           },
           imageUrl: raw.photoUrl ?? undefined,
           imageUrls: raw.photoUrls?.length ? raw.photoUrls : raw.photoUrl ? [raw.photoUrl] : undefined,
-          title: displayName || 'Unknown Whisky',
-          productLine: raw.variant?.product?.name ?? undefined,
-          hasBox: Boolean(raw.boxAvailable),
+          title: raw.title || displayName || 'Untitled Post',
+          productLine: variant?.product?.name ?? undefined,
+          hasBox: Boolean(raw.linkedAsset?.boxAvailable),
           purchasePrice,
           currentValue,
-          caption: raw.caption ?? undefined,
+          caption: raw.body ?? undefined,
           trustedPrice,
-          priceMethod: raw.variant?.priceAggregate?.method ?? 'HIDDEN',
-          confidence: raw.variant?.priceAggregate?.confidence ?? 0,
+          priceMethod: variant?.priceAggregate?.method ?? 'HIDDEN',
+          confidence: variant?.priceAggregate?.confidence ?? 0,
           isFollowing: me ? followingIds.includes(raw.owner.id) : false,
           isOwnAsset: me ? raw.owner.id === me.id : false,
           createdAt: raw.createdAt.toISOString(),
@@ -166,8 +245,8 @@ export class SocialService {
     return {
       cursor,
       nextCursor:
-        hasNextPage && pageAssets.length
-          ? this.encodeFeedCursor(pageAssets[pageAssets.length - 1]!.createdAt, pageAssets[pageAssets.length - 1]!.id)
+        hasNextPage && pagePosts.length
+          ? this.encodeFeedCursor(pagePosts[pagePosts.length - 1]!.createdAt, pagePosts[pagePosts.length - 1]!.id)
           : null,
       items
     };
@@ -175,7 +254,7 @@ export class SocialService {
 
   async likePost(userEmail: string, assetId: string) {
     const me = await this.ensureUser(userEmail);
-    await this.ensureVisibleAsset(assetId);
+    await this.ensureVisiblePost(assetId);
 
     await this.prisma.feedLike.upsert({
       where: { assetId_userId: { assetId, userId: me.id } },
@@ -198,7 +277,7 @@ export class SocialService {
 
   async comments(userEmail: string, assetId: string) {
     await this.ensureUser(userEmail);
-    await this.ensureVisibleAsset(assetId);
+    await this.ensureVisiblePost(assetId);
 
     const comments = await this.prisma.feedComment.findMany({
       where: { assetId, parentCommentId: null },
@@ -239,7 +318,7 @@ export class SocialService {
   async addComment(userEmail: string, assetId: string, content: string, parentCommentId?: string) {
     const me = await this.ensureUser(userEmail);
     if (!content.trim()) throw new BadRequestException('content is required');
-    await this.ensureVisibleAsset(assetId);
+    await this.ensureVisiblePost(assetId);
 
     if (parentCommentId) {
       const parent = await this.prisma.feedComment.findFirst({
@@ -275,21 +354,16 @@ export class SocialService {
 
   async updatePost(userEmail: string, assetId: string, title: string, body: string) {
     const me = await this.ensureUser(userEmail);
-    const existing = await this.prisma.whiskyAsset.findFirst({
-      where: {
-        id: assetId,
-        userId: me.id,
-        deletedAt: null,
-        OR: [{ isFeedPost: true }, { purchasePrice: { lte: 0 }, caption: { not: null } }]
-      }
+    const existing = await this.prisma.feedPost.findFirst({
+      where: { id: assetId, userId: me.id, deletedAt: null }
     });
     if (!existing) throw new NotFoundException('post not found');
 
-    const updated = await this.prisma.whiskyAsset.update({
+    const updated = await this.prisma.feedPost.update({
       where: { id: assetId },
       data: {
-        customProductName: title.trim() || existing.customProductName,
-        caption: body.trim(),
+        title: title.trim() || existing.title,
+        body: body.trim(),
         visibility: 'PUBLIC'
       }
     });
@@ -301,17 +375,12 @@ export class SocialService {
 
   async deletePost(userEmail: string, assetId: string) {
     const me = await this.ensureUser(userEmail);
-    const existing = await this.prisma.whiskyAsset.findFirst({
-      where: {
-        id: assetId,
-        userId: me.id,
-        deletedAt: null,
-        OR: [{ isFeedPost: true }, { purchasePrice: { lte: 0 }, caption: { not: null } }]
-      }
+    const existing = await this.prisma.feedPost.findFirst({
+      where: { id: assetId, userId: me.id, deletedAt: null }
     });
     if (!existing) throw new NotFoundException('post not found');
 
-    await this.prisma.whiskyAsset.update({
+    await this.prisma.feedPost.update({
       where: { id: assetId },
       data: {
         deletedAt: new Date(),
@@ -324,15 +393,10 @@ export class SocialService {
 
   async upsertPoll(userEmail: string, assetId: string, question: string, options: string[]) {
     const me = await this.ensureUser(userEmail);
-    const asset = await this.prisma.whiskyAsset.findFirst({
-      where: {
-        id: assetId,
-        userId: me.id,
-        deletedAt: null,
-        OR: [{ isFeedPost: true }, { purchasePrice: { lte: 0 }, caption: { not: null } }]
-      }
+    const post = await this.prisma.feedPost.findFirst({
+      where: { id: assetId, userId: me.id, deletedAt: null }
     });
-    if (!asset) throw new NotFoundException('post not found');
+    if (!post) throw new NotFoundException('post not found');
 
     const trimmedQuestion = question.trim();
     const trimmedOptions = options.map((option) => option.trim()).filter(Boolean);
@@ -377,9 +441,7 @@ export class SocialService {
     const me = await this.ensureUser(userEmail);
     const notifications = await this.prisma.notification.findMany({
       where: { userId: me.id },
-      include: {
-        actor: true
-      },
+      include: { actor: true },
       orderBy: { createdAt: 'desc' },
       take: 100
     });
@@ -423,7 +485,7 @@ export class SocialService {
 
     const [assets, followerCount, followingCount] = await Promise.all([
       this.prisma.whiskyAsset.findMany({
-        where: { userId: user.id, visibility: 'PUBLIC', isFeedPost: false, deletedAt: null },
+        where: { userId: user.id, visibility: 'PUBLIC', deletedAt: null },
         include: {
           variant: {
             include: { product: { include: { brand: true } }, priceAggregate: true }
@@ -532,7 +594,6 @@ export class SocialService {
         where: { deletedAt: null },
         select: {
           userId: true,
-          isFeedPost: true,
           purchasePrice: true,
           variant: { select: { priceAggregate: { select: { trustedPrice: true } } } }
         }
@@ -546,7 +607,6 @@ export class SocialService {
     const totals = new Map<string, { totalValue: number; totalPurchase: number; assetCount: number }>();
 
     for (const asset of assets) {
-      if (asset.isFeedPost) continue;
       const trusted = asset.variant?.priceAggregate?.trustedPrice ? Number(asset.variant.priceAggregate.trustedPrice) : null;
       const value = trusted ?? Number(asset.purchasePrice);
       const prev = totals.get(asset.userId) ?? { totalValue: 0, totalPurchase: 0, assetCount: 0 };
@@ -589,17 +649,16 @@ export class SocialService {
     });
   }
 
-  private async ensureVisibleAsset(assetId: string) {
-    const asset = await this.prisma.whiskyAsset.findFirst({
+  private async ensureVisiblePost(assetId: string) {
+    const post = await this.prisma.feedPost.findFirst({
       where: {
         id: assetId,
         deletedAt: null,
-        visibility: 'PUBLIC',
-        OR: [{ isFeedPost: true }, { purchasePrice: { lte: 0 }, caption: { not: null } }]
+        visibility: 'PUBLIC'
       }
     });
-    if (!asset) throw new NotFoundException('feed post not found');
-    return asset;
+    if (!post) throw new NotFoundException('feed post not found');
+    return post;
   }
 
   private extractMentionUsernames(text: string) {
@@ -641,12 +700,7 @@ export class SocialService {
     if (Number.isNaN(createdAt.getTime())) return undefined;
 
     return {
-      OR: [
-        { createdAt: { lt: createdAt } },
-        {
-          AND: [{ createdAt }, { id: { lt: id } }]
-        }
-      ]
+      OR: [{ createdAt: { lt: createdAt } }, { AND: [{ createdAt }, { id: { lt: id } }] }]
     };
   }
 
@@ -662,12 +716,7 @@ export class SocialService {
     if (Number.isNaN(createdAt.getTime())) return undefined;
 
     return {
-      OR: [
-        { createdAt: { lt: createdAt } },
-        {
-          AND: [{ createdAt }, { id: { lt: id } }]
-        }
-      ]
+      OR: [{ createdAt: { lt: createdAt } }, { AND: [{ createdAt }, { id: { lt: id } }] }]
     };
   }
 }

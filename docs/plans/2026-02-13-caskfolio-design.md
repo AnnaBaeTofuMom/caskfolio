@@ -97,6 +97,6 @@ Weight dimensions:
   - detailed follower/following member lists are loaded via paginated profile APIs.
   - follower/following list APIs require authenticated user context (`x-user-email`).
 - Asset/feed domain split:
-  - `WhiskyAsset` now uses `isFeedPost` to distinguish collection assets from feed content.
-  - feed queries are scoped to feed-post records so registering an asset never auto-publishes to feed.
-  - `Widget=ASSET` acts as the only intended connection point from feed authoring to existing asset data.
+  - collection assets and feed posts are physically separated (`WhiskyAsset` vs `FeedPost`).
+  - registering an asset never auto-publishes because feed reads only `FeedPost`.
+  - `Widget=ASSET` is the only connection point via `FeedPost.linkedAssetId`.

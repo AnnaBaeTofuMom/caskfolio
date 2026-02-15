@@ -20,7 +20,6 @@ type MyAsset = {
   photoUrl: string | null;
   photoUrls?: string[];
   visibility: 'PUBLIC' | 'PRIVATE';
-  isFeedPost?: boolean;
 };
 
 export function isAssetWidgetSelectable(assetCount: number): boolean {
@@ -45,7 +44,7 @@ export function FeedPostForm() {
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
 
-  const widgetAssets = useMemo(() => assets.filter((asset) => !asset.isFeedPost), [assets]);
+  const widgetAssets = assets;
   const selectedAsset = useMemo(() => widgetAssets.find((asset) => asset.id === assetId) ?? null, [assetId, widgetAssets]);
   const canSelectAssetWidget = isAssetWidgetSelectable(widgetAssets.length);
 
@@ -107,28 +106,20 @@ export function FeedPostForm() {
           : [];
       const finalPhotoUrls = photoUrls.length ? photoUrls : fallbackAssetPhotos;
 
-      const response = await fetch(`${API_BASE}/assets`, {
+      const response = await fetch(`${API_BASE}/social/feed`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           'x-user-email': userEmail
         },
         body: JSON.stringify({
+          title: title.trim(),
+          body: body.trim(),
+          linkedAssetId: widgetType === 'ASSET' ? assetId : undefined,
           variantId: selectedAsset?.variantId || undefined,
-          customProductName: title.trim() || selectedAsset?.customProductName || selectedAsset?.displayName,
-          purchasePrice: widgetType === 'ASSET' ? (selectedAsset?.purchasePrice ?? 0) : 0,
-          purchaseDate:
-            widgetType === 'ASSET' && selectedAsset?.purchaseDate
-              ? selectedAsset.purchaseDate.slice(0, 10)
-              : new Date().toISOString().slice(0, 10),
-          bottleCondition: 'SEALED',
-          boxAvailable: widgetType === 'ASSET' ? (selectedAsset?.boxAvailable ?? false) : false,
-          storageLocation: 'HOME',
           photoUrl: finalPhotoUrls[0] ?? undefined,
           photoUrls: finalPhotoUrls.length ? finalPhotoUrls : undefined,
-          caption: body.trim(),
-          visibility: 'PUBLIC',
-          isFeedPost: true
+          visibility: 'PUBLIC'
         })
       });
 
@@ -138,7 +129,7 @@ export function FeedPostForm() {
       }
 
       const created = (await response.json()) as { id?: string };
-      const createdAssetId = created.id;
+      const createdPostId = created.id;
 
       if (widgetType === 'POLL') {
         const options = pollOptions.map((option) => option.trim()).filter(Boolean);
@@ -146,11 +137,11 @@ export function FeedPostForm() {
           setStatus('Poll 위젯은 질문과 2개 이상 보기 항목이 필요합니다.');
           return;
         }
-        if (!createdAssetId) {
+        if (!createdPostId) {
           setStatus('Poll 대상 글 ID를 찾을 수 없습니다.');
           return;
         }
-        const pollResponse = await fetch(`${API_BASE}/social/feed/${createdAssetId}/poll`, {
+        const pollResponse = await fetch(`${API_BASE}/social/feed/${createdPostId}/poll`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
