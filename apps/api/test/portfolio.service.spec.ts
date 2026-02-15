@@ -33,4 +33,66 @@ describe('PortfolioService', () => {
     expect(result.url).toMatch(/^https:\/\/example\.com\/portfolio\/share\/[a-f0-9]{16}$/);
     expect(result.selectedAssetIds).toEqual(['a1', 'a2']);
   });
+
+  it('summary excludes feed posts from portfolio totals', async () => {
+    const prisma = {
+      user: {
+        findUnique: vi.fn().mockResolvedValue({ id: 'u1', email: 'demo@caskfolio.com', username: 'demo', name: 'Demo' })
+      },
+      whiskyAsset: {
+        findMany: vi.fn().mockResolvedValue([])
+      }
+    } as never;
+
+    const withDb = new PortfolioService(prisma);
+    await withDb.summary('demo@caskfolio.com');
+
+    expect((prisma as any).whiskyAsset.findMany).toHaveBeenCalledWith({
+      where: { userId: 'u1', isFeedPost: false },
+      include: { variant: { include: { priceAggregate: true } } }
+    });
+  });
+
+  it('chart excludes feed posts from time series', async () => {
+    const prisma = {
+      user: {
+        findUnique: vi.fn().mockResolvedValue({ id: 'u1', email: 'demo@caskfolio.com', username: 'demo', name: 'Demo' })
+      },
+      whiskyAsset: {
+        findMany: vi.fn().mockResolvedValue([])
+      }
+    } as never;
+
+    const withDb = new PortfolioService(prisma);
+    await withDb.chart('demo@caskfolio.com');
+
+    expect((prisma as any).whiskyAsset.findMany).toHaveBeenCalledWith({
+      where: { userId: 'u1', isFeedPost: false },
+      include: { variant: { include: { priceAggregate: true } } },
+      orderBy: { purchaseDate: 'asc' }
+    });
+  });
+
+  it('share link fallback excludes feed posts from selected assets', async () => {
+    const prisma = {
+      user: {
+        findUnique: vi.fn().mockResolvedValue({ id: 'u1', email: 'demo@caskfolio.com', username: 'demo', name: 'Demo' })
+      },
+      whiskyAsset: {
+        findMany: vi.fn().mockResolvedValue([{ id: 'a1' }])
+      },
+      portfolioShare: {
+        create: vi.fn().mockResolvedValue({ id: 's1' })
+      }
+    } as never;
+
+    const withDb = new PortfolioService(prisma);
+    await withDb.createShareLink('demo@caskfolio.com', []);
+
+    expect((prisma as any).whiskyAsset.findMany).toHaveBeenCalledWith({
+      where: { userId: 'u1', visibility: 'PUBLIC', isFeedPost: false },
+      select: { id: true },
+      take: 30
+    });
+  });
 });

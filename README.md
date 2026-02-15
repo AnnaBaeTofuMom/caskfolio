@@ -118,5 +118,6 @@ pnpm dev
   - Feed composer publish flow: `isFeedPost=true`
 - Feed timeline only queries feed-post records (plus legacy fallback condition for old posts).
 - Public collection/profile and portfolio ranking exclude feed-post records from asset valuation context.
+- Portfolio dashboard summary/chart and share-link fallback selection now also exclude `isFeedPost=true` rows.
 - Operational note:
   - apply schema change before deploy (`prisma db push` or migration) to add `isFeedPost` column.
