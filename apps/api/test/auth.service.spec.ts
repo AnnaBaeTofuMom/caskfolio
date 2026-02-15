@@ -95,6 +95,23 @@ describe('AuthService', () => {
     expect(prisma.whiskyAsset.createMany).not.toHaveBeenCalled();
   });
 
+  it('rejects signup when required fields are missing', async () => {
+    const prisma: any = {
+      user: {
+        findUnique: vi.fn(),
+        create: vi.fn()
+      }
+    };
+    const service = new AuthService(prisma, jwt);
+
+    await expect(service.signup('', 'pass1234', 'User')).rejects.toThrow('email is required');
+    await expect(service.signup('user@example.com', '', 'User')).rejects.toThrow('password is required');
+    await expect(service.signup('user@example.com', 'pass1234', '')).rejects.toThrow('name is required');
+
+    expect(prisma.user.findUnique).not.toHaveBeenCalled();
+    expect(prisma.user.create).not.toHaveBeenCalled();
+  });
+
   it('refreshes token when refresh session is valid', async () => {
     const prisma: any = {
       authSession: {

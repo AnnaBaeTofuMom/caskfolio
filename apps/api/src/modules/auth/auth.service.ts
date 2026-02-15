@@ -13,6 +13,16 @@ export class AuthService {
   ) {}
 
   async signup(email: string, password: string, name: string) {
+    if (!email?.trim()) {
+      throw new BadRequestException('email is required');
+    }
+    if (!password?.trim()) {
+      throw new BadRequestException('password is required');
+    }
+    if (!name?.trim()) {
+      throw new BadRequestException('name is required');
+    }
+
     const exists = await this.prisma.user.findUnique({ where: { email } });
     if (exists) {
       throw new BadRequestException('email already exists');
