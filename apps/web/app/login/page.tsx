@@ -1,9 +1,5 @@
-import { LoginForm } from '../../components/auth/login-form';
+import { redirect } from 'next/navigation';
 
 export default function LoginPage() {
-  return (
-    <section className="login-page">
-      <LoginForm />
-    </section>
-  );
+  redirect('/auth/login');
 }
