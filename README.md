@@ -113,6 +113,8 @@ pnpm dev
     - On boot, service pulls from `https://whiskyhunter.net/api/` (distillery + search endpoints) and upserts discovered lines/variants.
     - Sync is additive-only (no delete/shrink path). Existing catalog rows are never removed by sync.
     - Controlled by `WHISKYHUNTER_SYNC_ON_BOOT` (default enabled).
+  - User-facing catalog search (`/api/catalog/brands|products|variants`) uses normalized contains matching
+    (case-insensitive; ignores spaces/symbols/common article `the`) to avoid exact-match-only behavior.
 - Crawler bootstrap/scheduling:
   - Daily scheduled crawl remains `09:00 KST`.
   - On app boot, crawler also runs one immediate pass by default (`CRAWLER_RUN_ON_BOOT=true`).
