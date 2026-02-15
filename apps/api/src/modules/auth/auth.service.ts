@@ -212,16 +212,29 @@ export class AuthService {
   }
 
   hashPassword(password: string) {
-    const salt = randomBytes(16).toString('hex');
-    const hash = scryptSync(password, salt, 64).toString('hex');
-    return `${salt}:${hash}`;
+    // Compact format to avoid oversized values in constrained DB varchar columns.
+    const salt = randomBytes(16);
+    const hash = scryptSync(password, salt, 32);
+    return `s2$${salt.toString('base64url')}$${hash.toString('base64url')}`;
   }
 
   verifyPassword(password: string, storedHash: string) {
-    const [salt, hash] = storedHash.split(':');
-    if (!salt || !hash) return false;
-    const candidate = scryptSync(password, salt, 64);
-    const actual = Buffer.from(hash, 'hex');
+    // New compact format.
+    if (storedHash.startsWith('s2$')) {
+      const [, saltB64, hashB64] = storedHash.split('$');
+      if (!saltB64 || !hashB64) return false;
+      const salt = Buffer.from(saltB64, 'base64url');
+      const actual = Buffer.from(hashB64, 'base64url');
+      const candidate = scryptSync(password, salt, actual.length);
+      if (candidate.length !== actual.length) return false;
+      return timingSafeEqual(candidate, actual);
+    }
+
+    // Legacy format support: "<salt hex>:<hash hex>".
+    const [saltHex, hashHex] = storedHash.split(':');
+    if (!saltHex || !hashHex) return false;
+    const candidate = scryptSync(password, saltHex, 64);
+    const actual = Buffer.from(hashHex, 'hex');
     if (candidate.length !== actual.length) return false;
     return timingSafeEqual(candidate, actual);
   }

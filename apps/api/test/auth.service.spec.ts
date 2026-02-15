@@ -16,6 +16,14 @@ describe('AuthService', () => {
     expect(service.verifyPassword('wrong', hash)).toBe(false);
   });
 
+  it('stores password hash in a compact format for constrained DB columns', () => {
+    const service = new AuthService({} as never, jwt);
+    const hash = service.hashPassword('secret123');
+
+    expect(hash.length).toBeLessThanOrEqual(100);
+    expect(service.verifyPassword('secret123', hash)).toBe(true);
+  });
+
   it('rejects login when password is invalid', async () => {
     const service = new AuthService(
       {
