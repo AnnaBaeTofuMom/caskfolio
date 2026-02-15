@@ -20,6 +20,7 @@ type MyAsset = {
   photoUrl: string | null;
   photoUrls?: string[];
   visibility: 'PUBLIC' | 'PRIVATE';
+  isFeedPost?: boolean;
 };
 
 export function isAssetWidgetSelectable(assetCount: number): boolean {
@@ -44,8 +45,9 @@ export function FeedPostForm() {
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
 
-  const selectedAsset = useMemo(() => assets.find((asset) => asset.id === assetId) ?? null, [assetId, assets]);
-  const canSelectAssetWidget = isAssetWidgetSelectable(assets.length);
+  const widgetAssets = useMemo(() => assets.filter((asset) => !asset.isFeedPost), [assets]);
+  const selectedAsset = useMemo(() => widgetAssets.find((asset) => asset.id === assetId) ?? null, [assetId, widgetAssets]);
+  const canSelectAssetWidget = isAssetWidgetSelectable(widgetAssets.length);
 
   useEffect(() => {
     const auth = readAuthContext(window.localStorage);
@@ -125,7 +127,8 @@ export function FeedPostForm() {
           photoUrl: finalPhotoUrls[0] ?? undefined,
           photoUrls: finalPhotoUrls.length ? finalPhotoUrls : undefined,
           caption: body.trim(),
-          visibility: 'PUBLIC'
+          visibility: 'PUBLIC',
+          isFeedPost: true
         })
       });
 
@@ -291,7 +294,7 @@ export function FeedPostForm() {
             Asset Widget Source
             <select value={assetId} onChange={(e) => setAssetId(e.target.value)}>
               <option value="">자산 선택</option>
-              {assets.map((asset) => (
+              {widgetAssets.map((asset) => (
                 <option key={asset.id} value={asset.id}>
                   {asset.displayName}
                 </option>

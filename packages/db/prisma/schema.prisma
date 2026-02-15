@@ -152,6 +152,7 @@ model WhiskyAsset {
   photoUrls         String[]         @default([])
   caption           String?
   visibility        Visibility       @default(PRIVATE)
+  isFeedPost        Boolean          @default(false)
   createdAt         DateTime         @default(now())
   owner             User             @relation(fields: [userId], references: [id], onDelete: Cascade)
   variant           Variant?         @relation(fields: [variantId], references: [id], onDelete: SetNull)
@@ -165,6 +166,7 @@ model WhiskyAsset {
   @@index([userId, createdAt])
   @@index([variantId])
   @@index([visibility])
+  @@index([isFeedPost, visibility, createdAt])
 }
 
 model FeedLike {

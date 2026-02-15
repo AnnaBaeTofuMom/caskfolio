@@ -54,6 +54,7 @@ export class SocialService {
     const rawAssets = await this.prisma.whiskyAsset.findMany({
       where: {
         visibility: 'PUBLIC',
+        OR: [{ isFeedPost: true }, { purchasePrice: { lte: 0 }, caption: { not: null } }],
         ...(cursorFilter ?? {})
       },
       include: {
@@ -274,7 +275,11 @@ export class SocialService {
   async updatePost(userEmail: string, assetId: string, title: string, body: string) {
     const me = await this.ensureUser(userEmail);
     const existing = await this.prisma.whiskyAsset.findFirst({
-      where: { id: assetId, userId: me.id }
+      where: {
+        id: assetId,
+        userId: me.id,
+        OR: [{ isFeedPost: true }, { purchasePrice: { lte: 0 }, caption: { not: null } }]
+      }
     });
     if (!existing) throw new NotFoundException('post not found');
 
@@ -295,7 +300,11 @@ export class SocialService {
   async deletePost(userEmail: string, assetId: string) {
     const me = await this.ensureUser(userEmail);
     const existing = await this.prisma.whiskyAsset.findFirst({
-      where: { id: assetId, userId: me.id }
+      where: {
+        id: assetId,
+        userId: me.id,
+        OR: [{ isFeedPost: true }, { purchasePrice: { lte: 0 }, caption: { not: null } }]
+      }
     });
     if (!existing) throw new NotFoundException('post not found');
 
@@ -311,7 +320,13 @@ export class SocialService {
 
   async upsertPoll(userEmail: string, assetId: string, question: string, options: string[]) {
     const me = await this.ensureUser(userEmail);
-    const asset = await this.prisma.whiskyAsset.findFirst({ where: { id: assetId, userId: me.id } });
+    const asset = await this.prisma.whiskyAsset.findFirst({
+      where: {
+        id: assetId,
+        userId: me.id,
+        OR: [{ isFeedPost: true }, { purchasePrice: { lte: 0 }, caption: { not: null } }]
+      }
+    });
     if (!asset) throw new NotFoundException('post not found');
 
     const trimmedQuestion = question.trim();
@@ -403,7 +418,7 @@ export class SocialService {
 
     const [assets, followerCount, followingCount] = await Promise.all([
       this.prisma.whiskyAsset.findMany({
-        where: { userId: user.id, visibility: 'PUBLIC' },
+        where: { userId: user.id, visibility: 'PUBLIC', isFeedPost: false },
         include: {
           variant: {
             include: { product: { include: { brand: true } }, priceAggregate: true }
@@ -511,6 +526,7 @@ export class SocialService {
       this.prisma.whiskyAsset.findMany({
         select: {
           userId: true,
+          isFeedPost: true,
           purchasePrice: true,
           variant: { select: { priceAggregate: { select: { trustedPrice: true } } } }
         }
@@ -524,6 +540,7 @@ export class SocialService {
     const totals = new Map<string, { totalValue: number; totalPurchase: number; assetCount: number }>();
 
     for (const asset of assets) {
+      if (asset.isFeedPost) continue;
       const trusted = asset.variant?.priceAggregate?.trustedPrice ? Number(asset.variant.priceAggregate.trustedPrice) : null;
       const value = trusted ?? Number(asset.purchasePrice);
       const prev = totals.get(asset.userId) ?? { totalValue: 0, totalPurchase: 0, assetCount: 0 };
@@ -568,7 +585,11 @@ export class SocialService {
 
   private async ensureVisibleAsset(assetId: string) {
     const asset = await this.prisma.whiskyAsset.findFirst({
-      where: { id: assetId, visibility: 'PUBLIC' }
+      where: {
+        id: assetId,
+        visibility: 'PUBLIC',
+        OR: [{ isFeedPost: true }, { purchasePrice: { lte: 0 }, caption: { not: null } }]
+      }
     });
     if (!asset) throw new NotFoundException('feed post not found');
     return asset;

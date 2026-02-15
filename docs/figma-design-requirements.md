@@ -140,3 +140,6 @@
   - `Asset widget` option must be visibly disabled.
   - `None` and `Poll` widget options stay selectable.
   - Optional helper copy should guide users to asset registration without blocking post creation.
+- Domain separation rule:
+  - Asset registration itself must not create a feed post.
+  - Asset data should connect to feed content only through explicit `Asset widget` selection in composer.

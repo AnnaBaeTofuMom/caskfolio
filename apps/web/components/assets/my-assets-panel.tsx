@@ -16,6 +16,7 @@ type Asset = {
   photoUrl: string | null;
   caption: string | null;
   visibility: 'PUBLIC' | 'PRIVATE';
+  isFeedPost?: boolean;
 };
 
 type MyAssetsPanelProps = {
@@ -156,7 +157,7 @@ export function MyAssetsPanel({
     }
   }
 
-  const postItems = assets.filter((asset) => asset.purchasePrice <= 0 && Boolean(asset.caption));
+  const postItems = assets.filter((asset) => asset.isFeedPost || (asset.purchasePrice <= 0 && Boolean(asset.caption)));
   const postIdSet = new Set(postItems.map((post) => post.id));
   const whiskyItems = assets.filter((asset) => !postIdSet.has(asset.id));
   const visiblePosts = showPosts ? (postsPreviewCount > 0 ? postItems.slice(0, postsPreviewCount) : postItems) : [];

@@ -154,4 +154,27 @@ describe('SocialService', () => {
     expect(result.items[1]!.isFollowing).toBe(false);
     expect(result.items[0]!.isOwnAsset).toBe(false);
   });
+
+  it('queries feed with post-only filter to separate registered assets', async () => {
+    const prisma: any = {
+      user: {
+        findUnique: vi.fn().mockResolvedValue({ id: 'u-me', email: 'me@caskfolio.com', username: 'me', name: 'Me' })
+      },
+      follow: {
+        findMany: vi.fn().mockResolvedValue([])
+      },
+      whiskyAsset: {
+        findMany: vi.fn().mockResolvedValue([])
+      }
+    };
+
+    const feedService = { mix: vi.fn().mockReturnValue({ items: [] }) } as never;
+    const service = new SocialService(prisma, feedService);
+
+    await service.feed('me@caskfolio.com');
+
+    const query = prisma.whiskyAsset.findMany.mock.calls[0]?.[0];
+    expect(query?.where?.visibility).toBe('PUBLIC');
+    expect(Array.isArray(query?.where?.OR)).toBe(true);
+  });
 });

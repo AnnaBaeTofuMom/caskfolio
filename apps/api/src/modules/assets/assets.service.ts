@@ -14,6 +14,7 @@ interface CreateAssetInput {
   photoUrls?: string[];
   caption?: string;
   visibility?: 'PRIVATE' | 'PUBLIC';
+  isFeedPost?: boolean;
 }
 
 @Injectable()
@@ -37,7 +38,8 @@ export class AssetsService {
       photoUrl: input.photoUrl,
       photoUrls: input.photoUrls ?? (input.photoUrl ? [input.photoUrl] : []),
       caption: input.caption,
-      visibility: input.visibility ?? 'PRIVATE'
+      visibility: input.visibility ?? 'PRIVATE',
+      isFeedPost: input.isFeedPost ?? false
     };
   }
 
@@ -59,7 +61,8 @@ export class AssetsService {
         photoUrl: normalized.photoUrl,
         photoUrls: normalized.photoUrls,
         caption: normalized.caption,
-        visibility: normalized.visibility
+        visibility: normalized.visibility,
+        isFeedPost: normalized.isFeedPost
       }
     });
 
@@ -97,7 +100,8 @@ export class AssetsService {
         photoUrl: input.photoUrl,
         photoUrls: input.photoUrls,
         caption: input.caption,
-        visibility: input.visibility
+        visibility: input.visibility,
+        isFeedPost: input.isFeedPost
       }
     });
   }
@@ -127,6 +131,7 @@ export class AssetsService {
       photoUrls: asset.photoUrls ?? [],
       caption: asset.caption ?? null,
       visibility: asset.visibility,
+      isFeedPost: asset.isFeedPost,
       customProductName: asset.customProductName,
       displayName:
         asset.customProductName ??

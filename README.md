@@ -111,3 +111,12 @@ pnpm dev
   - Users can write feed posts even when they have no existing assets.
   - If user has zero assets, `Widget=ASSET` is disabled.
   - `Widget=NONE` / `Widget=POLL` remain available.
+
+## Feed/Asset Separation Update (2026-02-15)
+- Registered assets and feed posts are now explicitly separated by `WhiskyAsset.isFeedPost`.
+  - Asset registration flow: `isFeedPost=false` (default)
+  - Feed composer publish flow: `isFeedPost=true`
+- Feed timeline only queries feed-post records (plus legacy fallback condition for old posts).
+- Public collection/profile and portfolio ranking exclude feed-post records from asset valuation context.
+- Operational note:
+  - apply schema change before deploy (`prisma db push` or migration) to add `isFeedPost` column.

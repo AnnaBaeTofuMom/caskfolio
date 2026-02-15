@@ -158,3 +158,12 @@
   - `GET /api/u/:username/following?cursor&limit`
 - Security policy:
   - follower/following detail endpoints require authenticated user context header (`x-user-email`).
+
+### Asset vs Feed separation policy update
+- Added `WhiskyAsset.isFeedPost` for explicit domain separation.
+- Behavior:
+  - asset registration path persists records as non-feed assets.
+  - feed composer path persists records as feed posts.
+  - feed timeline excludes registered assets from appearing as posts.
+- Legacy compatibility:
+  - old feed-like records are still readable through fallback filter conditions.
