@@ -148,3 +148,13 @@
 - UX rule:
   - when asset count is zero, `Widget=ASSET` is disabled
   - `Widget=NONE` and `Widget=POLL` are still available
+
+### Profile follower/following visibility update
+- Profile summary now includes:
+  - `followerCount`
+  - `followingCount`
+- Detail endpoints added (cursor pagination):
+  - `GET /api/u/:username/followers?cursor&limit`
+  - `GET /api/u/:username/following?cursor&limit`
+- Security policy:
+  - follower/following detail endpoints require authenticated user context header (`x-user-email`).

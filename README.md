@@ -13,7 +13,7 @@ Whisky Asset Platform MVP monorepo.
 - Asset registration: brand/product/variant lookup + custom input + admin review queue
 - Portfolio: summary/chart + persistent public share links
 - Pricing: internal/external aggregation with weighted-median fallback
-- Social: follow/unfollow, hybrid feed (70/30), public profile
+- Social: follow/unfollow, hybrid feed (70/30), public profile, follower/following counts and paginated member lists
 - Crawler: daily 09:00 KST job writing market snapshots + refreshing aggregates
 - Admin: dashboard metrics, users, catalog create endpoints, custom product approval
 
@@ -74,6 +74,8 @@ pnpm dev
   - `POST /api/social/follow/:userId`
   - `DELETE /api/social/follow/:userId`
   - `GET /api/u/:username`
+  - `GET /api/u/:username/followers` (auth required)
+  - `GET /api/u/:username/following` (auth required)
   - `GET /api/variants/:variantId/price`
 - API Admin:
   - `GET /api/admin/metrics`

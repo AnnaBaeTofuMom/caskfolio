@@ -1,5 +1,6 @@
 import Link from 'next/link';
 import { safeFetch } from '../../../lib/api';
+import { ProfileFollowList } from '../../../components/profile-follow-list';
 
 interface Props {
   params: Promise<{ username: string }>;
@@ -10,7 +11,7 @@ type PublicProfile = {
   name?: string;
   profileImage?: string | null;
   joinedAt?: string;
-  summary: { assetCount: number; publicAssets: number };
+  summary: { assetCount: number; publicAssets: number; followerCount: number; followingCount: number };
   assets: Array<{
     assetId: string;
     title: string;
@@ -31,7 +32,7 @@ export default async function UserProfilePage({ params }: Props) {
     ({
       username,
       name: username,
-      summary: { assetCount: 0, publicAssets: 0 },
+      summary: { assetCount: 0, publicAssets: 0, followerCount: 0, followingCount: 0 },
       assets: []
     } as PublicProfile);
 
@@ -78,6 +79,8 @@ export default async function UserProfilePage({ params }: Props) {
         <div className="actions" style={{ marginTop: 8 }}>
           <span className="sub">Joined {formatMonth(profile.joinedAt)}</span>
           <span className="sub">{profile.summary.publicAssets} public assets</span>
+          <span className="sub">Followers {profile.summary.followerCount}</span>
+          <span className="sub">Following {profile.summary.followingCount}</span>
           <span className="sub">{totalValue.toLocaleString()} KRW total value</span>
         </div>
         <div className="metrics" style={{ marginTop: 12, marginBottom: 0 }}>
@@ -95,6 +98,12 @@ export default async function UserProfilePage({ params }: Props) {
           </article>
         </div>
       </article>
+
+      <ProfileFollowList
+        username={profile.username}
+        followerCount={profile.summary.followerCount}
+        followingCount={profile.summary.followingCount}
+      />
 
       <h2>Public Collection</h2>
       <div className="grid">

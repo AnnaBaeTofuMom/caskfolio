@@ -70,6 +70,8 @@
     - Date
 - Public Profile
   - User header
+  - Follower/following counts in header
+  - Clickable follower/following area to open paginated member list
   - Public collection cards (photo + caption + trusted price)
 - Admin Dashboard
   - KPI cards

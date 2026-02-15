@@ -92,3 +92,7 @@ Weight dimensions:
 - Feed composer rule:
   - posting is allowed even with zero existing assets.
   - in zero-asset state, `Asset widget` is disabled while `None/Poll` remain available.
+- Profile social visibility:
+  - profile header shows `followerCount` and `followingCount`.
+  - detailed follower/following member lists are loaded via paginated profile APIs.
+  - follower/following list APIs require authenticated user context (`x-user-email`).

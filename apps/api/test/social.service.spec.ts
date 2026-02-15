@@ -34,7 +34,72 @@ describe('SocialService', () => {
     const profile = await service.publicProfile('missing');
 
     expect(profile.summary.assetCount).toBe(0);
+    expect(profile.summary.followerCount).toBe(0);
+    expect(profile.summary.followingCount).toBe(0);
     expect(profile.assets).toEqual([]);
+  });
+
+  it('includes follower/following counts in public profile summary', async () => {
+    const prisma: any = {
+      user: {
+        findUnique: vi.fn().mockResolvedValue({
+          id: 'u1',
+          username: 'anna',
+          name: 'Anna',
+          profileImage: null,
+          createdAt: new Date('2026-02-01T00:00:00.000Z')
+        })
+      },
+      whiskyAsset: {
+        findMany: vi.fn().mockResolvedValue([])
+      },
+      follow: {
+        count: vi.fn().mockResolvedValueOnce(12).mockResolvedValueOnce(7)
+      }
+    };
+
+    const feedService = { mix: vi.fn() } as never;
+    const service = new SocialService(prisma, feedService);
+    const profile = await service.publicProfile('anna');
+
+    expect(profile.summary.followerCount).toBe(12);
+    expect(profile.summary.followingCount).toBe(7);
+  });
+
+  it('returns paginated followers list with next cursor', async () => {
+    const prisma: any = {
+      user: {
+        findUnique: vi.fn().mockResolvedValue({ id: 'u-owner', username: 'owner', name: 'Owner' })
+      },
+      follow: {
+        findMany: vi.fn().mockResolvedValue([
+          {
+            id: 'f3',
+            createdAt: new Date('2026-02-15T10:00:00.000Z'),
+            follower: { id: 'u3', username: 'u3', name: 'User3', profileImage: null }
+          },
+          {
+            id: 'f2',
+            createdAt: new Date('2026-02-14T10:00:00.000Z'),
+            follower: { id: 'u2', username: 'u2', name: 'User2', profileImage: null }
+          },
+          {
+            id: 'f1',
+            createdAt: new Date('2026-02-13T10:00:00.000Z'),
+            follower: { id: 'u1', username: 'u1', name: 'User1', profileImage: null }
+          }
+        ])
+      }
+    };
+
+    const feedService = { mix: vi.fn() } as never;
+    const service = new SocialService(prisma, feedService);
+
+    const result = await service.publicFollowers('owner', undefined, 2);
+
+    expect(result.items).toHaveLength(2);
+    expect(result.items[0]?.username).toBe('u3');
+    expect(result.nextCursor).toContain('__');
   });
 
   it('marks feed owner and follow state for each item', async () => {
@@ -48,7 +113,7 @@ describe('SocialService', () => {
       whiskyAsset: {
         findMany: vi
           .fn()
-          .mockResolvedValueOnce([
+          .mockResolvedValue([
             {
               id: 'a1',
               owner: { id: 'u-following', username: 'friend', name: 'Friend', profileImage: null },
@@ -57,9 +122,7 @@ describe('SocialService', () => {
               customProductName: 'Bottle A',
               variant: null,
               createdAt: new Date('2026-02-14T00:00:00.000Z')
-            }
-          ])
-          .mockResolvedValueOnce([
+            },
             {
               id: 'a2',
               owner: { id: 'u-stranger', username: 'newbie', name: 'Newbie', profileImage: null },

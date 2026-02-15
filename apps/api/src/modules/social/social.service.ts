@@ -396,27 +396,31 @@ export class SocialService {
     if (!user) {
       return {
         username,
-        summary: { assetCount: 0, publicAssets: 0 },
+        summary: { assetCount: 0, publicAssets: 0, followerCount: 0, followingCount: 0 },
         assets: []
       };
     }
 
-    const assets = await this.prisma.whiskyAsset.findMany({
-      where: { userId: user.id, visibility: 'PUBLIC' },
-      include: {
-        variant: {
-          include: { product: { include: { brand: true } }, priceAggregate: true }
-        }
-      },
-      orderBy: { createdAt: 'desc' }
-    });
+    const [assets, followerCount, followingCount] = await Promise.all([
+      this.prisma.whiskyAsset.findMany({
+        where: { userId: user.id, visibility: 'PUBLIC' },
+        include: {
+          variant: {
+            include: { product: { include: { brand: true } }, priceAggregate: true }
+          }
+        },
+        orderBy: { createdAt: 'desc' }
+      }),
+      this.prisma.follow.count({ where: { followingId: user.id } }),
+      this.prisma.follow.count({ where: { followerId: user.id } })
+    ]);
 
     return {
       username: user.username,
       name: user.name,
       profileImage: user.profileImage ?? null,
       joinedAt: user.createdAt.toISOString(),
-      summary: { assetCount: assets.length, publicAssets: assets.length },
+      summary: { assetCount: assets.length, publicAssets: assets.length, followerCount, followingCount },
       assets: assets.map((asset: (typeof assets)[number]) => ({
         assetId: asset.id,
         title:
@@ -433,6 +437,72 @@ export class SocialService {
         visibility: asset.visibility,
         trustedPrice: asset.variant?.priceAggregate?.trustedPrice ? Number(asset.variant.priceAggregate.trustedPrice) : null
       }))
+    };
+  }
+
+  async publicFollowers(username: string, cursor?: string, limit = 20) {
+    const user = await this.prisma.user.findUnique({ where: { username } });
+    if (!user) return { items: [], nextCursor: null };
+
+    const safeLimit = Math.min(Math.max(Number(limit) || 20, 1), 50);
+    const cursorFilter = this.buildFollowCursorFilter(cursor);
+    const follows = await this.prisma.follow.findMany({
+      where: {
+        followingId: user.id,
+        ...(cursorFilter ?? {})
+      },
+      include: {
+        follower: { select: { id: true, username: true, name: true, profileImage: true } }
+      },
+      orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
+      take: safeLimit + 1
+    });
+
+    const hasNextPage = follows.length > safeLimit;
+    const page = hasNextPage ? follows.slice(0, safeLimit) : follows;
+
+    return {
+      items: page.map((row: (typeof page)[number]) => ({
+        id: row.follower.id,
+        username: row.follower.username,
+        name: row.follower.name,
+        profileImage: row.follower.profileImage ?? null,
+        followedAt: row.createdAt.toISOString()
+      })),
+      nextCursor: hasNextPage ? this.encodeFollowCursor(page[page.length - 1]!.createdAt, page[page.length - 1]!.id) : null
+    };
+  }
+
+  async publicFollowing(username: string, cursor?: string, limit = 20) {
+    const user = await this.prisma.user.findUnique({ where: { username } });
+    if (!user) return { items: [], nextCursor: null };
+
+    const safeLimit = Math.min(Math.max(Number(limit) || 20, 1), 50);
+    const cursorFilter = this.buildFollowCursorFilter(cursor);
+    const follows = await this.prisma.follow.findMany({
+      where: {
+        followerId: user.id,
+        ...(cursorFilter ?? {})
+      },
+      include: {
+        following: { select: { id: true, username: true, name: true, profileImage: true } }
+      },
+      orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
+      take: safeLimit + 1
+    });
+
+    const hasNextPage = follows.length > safeLimit;
+    const page = hasNextPage ? follows.slice(0, safeLimit) : follows;
+
+    return {
+      items: page.map((row: (typeof page)[number]) => ({
+        id: row.following.id,
+        username: row.following.username,
+        name: row.following.name,
+        profileImage: row.following.profileImage ?? null,
+        followedAt: row.createdAt.toISOString()
+      })),
+      nextCursor: hasNextPage ? this.encodeFollowCursor(page[page.length - 1]!.createdAt, page[page.length - 1]!.id) : null
     };
   }
 
@@ -536,6 +606,27 @@ export class SocialService {
   }
 
   private buildFeedCursorFilter(cursor?: string) {
+    if (!cursor) return undefined;
+    const [createdAtRaw, id] = cursor.split('__');
+    if (!createdAtRaw || !id) return undefined;
+    const createdAt = new Date(createdAtRaw);
+    if (Number.isNaN(createdAt.getTime())) return undefined;
+
+    return {
+      OR: [
+        { createdAt: { lt: createdAt } },
+        {
+          AND: [{ createdAt }, { id: { lt: id } }]
+        }
+      ]
+    };
+  }
+
+  private encodeFollowCursor(createdAt: Date, id: string) {
+    return `${createdAt.toISOString()}__${id}`;
+  }
+
+  private buildFollowCursorFilter(cursor?: string) {
     if (!cursor) return undefined;
     const [createdAtRaw, id] = cursor.split('__');
     if (!createdAtRaw || !id) return undefined;
