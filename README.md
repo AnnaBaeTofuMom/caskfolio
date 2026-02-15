@@ -106,11 +106,13 @@ pnpm dev
   - Invalid payloads return `400` instead of causing `500` with `email: undefined`.
 - Catalog bootstrap:
   - API auto-seeds catalog depth on boot: brands + product lines + baseline variants.
-  - Includes expanded major brand sub-lines (e.g., Macallan line families) so Product Line/Version selectors are populated.
+  - Includes expanded major brand sub-lines so Product Line/Version selectors are populated.
   - Even when minimum counts are already satisfied, known catalog entries are still upsert-synced on boot (idempotent sync mode).
   - Controlled by `AUTO_SEED_BRANDS_ON_BOOT` (default enabled).
   - WhiskyHunter sync:
-    - On boot, service pulls from `https://whiskyhunter.net/api/` (distillery + search endpoints) and upserts discovered lines/variants.
+    - On boot, service pulls from `https://whiskyhunter.net/api/whiskies_data` and upserts discovered rows additively.
+    - Parsing priority is `full_name` first (fallback to `name`) for line/version extraction.
+    - Pagination with `next` is followed until exhaustion to maximize product coverage.
     - Sync is additive-only (no delete/shrink path). Existing catalog rows are never removed by sync.
     - Controlled by `WHISKYHUNTER_SYNC_ON_BOOT` (default enabled).
   - User-facing catalog search (`/api/catalog/brands|products|variants`) uses normalized contains matching

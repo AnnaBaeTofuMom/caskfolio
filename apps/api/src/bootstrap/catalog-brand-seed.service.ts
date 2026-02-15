@@ -274,119 +274,151 @@ export class CatalogBrandSeedService implements OnApplicationBootstrap {
     const enabled = (process.env.WHISKYHUNTER_SYNC_ON_BOOT ?? 'true').toLowerCase() !== 'false';
     if (!enabled) return;
 
-    const rows = await this.fetchWhiskyHunterDistilleries();
+    const rows = await this.fetchWhiskyHunterWhiskies();
     if (!rows.length) {
-      this.logger.warn('WhiskyHunter catalog sync skipped: no distillery rows returned');
+      this.logger.warn('WhiskyHunter catalog sync skipped: no whiskies_data rows returned');
       return;
     }
 
-    let brandUpserts = 0;
-    let lineUpserts = 0;
+    const touchedBrands = new Set<string>();
+    const touchedProducts = new Set<string>();
     let variantCreates = 0;
 
     for (const row of rows) {
-      const brandName = this.extractBrandName(row);
-      if (!brandName) continue;
+      const parsed = this.parseWhiskyHunterRow(row);
+      if (!parsed) continue;
 
       const brand = await this.prisma.brand.upsert({
-        where: { name: brandName },
-        create: { name: brandName },
+        where: { name: parsed.brandName },
+        create: { name: parsed.brandName },
         update: {}
       });
-      brandUpserts += 1;
+      touchedBrands.add(brand.id);
 
-      const region = this.extractRegion(row);
-      const lines = await this.resolveWhiskyHunterLines(brandName);
-      for (const line of lines) {
-        const product = await this.prisma.product.upsert({
-          where: { brandId_name: { brandId: brand.id, name: line } },
-          create: { brandId: brand.id, name: line },
-          update: {}
-        });
-        lineUpserts += 1;
+      const product = await this.prisma.product.upsert({
+        where: { brandId_name: { brandId: brand.id, name: parsed.lineName } },
+        create: { brandId: brand.id, name: parsed.lineName },
+        update: {}
+      });
+      touchedProducts.add(product.id);
 
-        const existingVariant = await this.prisma.variant.findFirst({
-          where: {
-            productId: product.id,
-            bottleSize: 700,
-            releaseYear: null,
-            region: region ?? null,
-            specialTag: 'WhiskyHunter Sync'
-          }
-        });
-        if (existingVariant) continue;
+      const existingVariant = await this.prisma.variant.findFirst({
+        where: {
+          productId: product.id,
+          bottleSize: parsed.bottleSize,
+          releaseYear: parsed.releaseYear,
+          region: parsed.region,
+          specialTag: parsed.versionTag
+        }
+      });
+      if (existingVariant) continue;
 
-        await this.prisma.variant.create({
-          data: {
-            productId: product.id,
-            bottleSize: 700,
-            releaseYear: null,
-            region: region ?? null,
-            specialTag: 'WhiskyHunter Sync'
-          }
-        });
-        variantCreates += 1;
-      }
+      await this.prisma.variant.create({
+        data: {
+          productId: product.id,
+          bottleSize: parsed.bottleSize,
+          releaseYear: parsed.releaseYear,
+          region: parsed.region,
+          specialTag: parsed.versionTag
+        }
+      });
+      variantCreates += 1;
     }
 
     this.logger.log(
-      `WhiskyHunter sync completed (additive-only): brands=${brandUpserts}, lines=${lineUpserts}, newVariants=${variantCreates}`
+      `WhiskyHunter sync completed (additive-only): brands=${touchedBrands.size}, lines=${touchedProducts.size}, newVariants=${variantCreates}`
     );
   }
 
-  private async fetchWhiskyHunterDistilleries(): Promise<Array<Record<string, unknown>>> {
-    const candidates = ['/distilleries_info/', '/distilleries_info'];
-    for (const path of candidates) {
-      const list = await this.fetchJsonArray(`${WHISKYHUNTER_API_BASE}${path}`);
+  private async fetchWhiskyHunterWhiskies(): Promise<Array<Record<string, unknown>>> {
+    const candidates = [
+      `${WHISKYHUNTER_API_BASE}/whiskies_data/?format=json`,
+      `${WHISKYHUNTER_API_BASE}/whiskies_data/`,
+      `${WHISKYHUNTER_API_BASE}/whiskies_data?format=json`,
+      `${WHISKYHUNTER_API_BASE}/whiskies_data`
+    ];
+    for (const url of candidates) {
+      const list = await this.fetchJsonCollection(url);
       if (list.length) return list;
     }
     return [];
   }
 
-  private async resolveWhiskyHunterLines(brandName: string): Promise<string[]> {
-    const fallback = [BRAND_DEFAULT_LINE_OVERRIDES[brandName] ?? 'Core Range'];
-    const query = encodeURIComponent(brandName);
-    const candidates = [
-      `${WHISKYHUNTER_API_BASE}/search?q=${query}`,
-      `${WHISKYHUNTER_API_BASE}/search/?q=${query}`,
-      `${WHISKYHUNTER_API_BASE}/whiskies_data/?q=${query}`,
-      `${WHISKYHUNTER_API_BASE}/whiskies_data?q=${query}`
-    ];
+  private async fetchJsonCollection(url: string): Promise<Array<Record<string, unknown>>> {
+    const collected: Array<Record<string, unknown>> = [];
+    const seen = new Set<string>();
+    let nextUrl: string | null = url;
 
-    const extracted = new Set<string>(fallback);
+    while (nextUrl && collected.length < 200000) {
+      if (seen.has(nextUrl)) break;
+      seen.add(nextUrl);
+      const payload = await this.fetchJson(nextUrl);
+      if (!payload) break;
 
-    for (const url of candidates) {
-      const list = await this.fetchJsonArray(url);
-      if (!list.length) continue;
+      const rows = this.extractRows(payload);
+      collected.push(...rows);
 
-      for (const row of list) {
-        const raw = this.pickString(row, ['name', 'title', 'whisky_name', 'bottle_name', 'expression', 'product_name']);
-        if (!raw) continue;
-        const normalized = this.normalizeLineName(brandName, raw);
-        if (normalized) extracted.add(normalized);
-      }
-      if (extracted.size > fallback.length) break;
+      if (Array.isArray(payload)) break;
+      if (!this.isRecord(payload)) break;
+      nextUrl = this.extractNextUrl(payload, nextUrl);
     }
 
-    return [...extracted].slice(0, 300);
+    return collected;
   }
 
-  private async fetchJsonArray(url: string): Promise<Array<Record<string, unknown>>> {
+  private async fetchJson(url: string): Promise<unknown | null> {
     try {
       const response = await fetch(url, { signal: AbortSignal.timeout(10000) });
-      if (!response.ok) return [];
-      const payload = (await response.json()) as unknown;
-      if (Array.isArray(payload)) return payload.filter((row): row is Record<string, unknown> => this.isRecord(row));
-      if (this.isRecord(payload)) {
-        const nested = ['results', 'items', 'data']
-          .map((key) => payload[key])
-          .find((value): value is unknown[] => Array.isArray(value));
-        if (nested) return nested.filter((row): row is Record<string, unknown> => this.isRecord(row));
-      }
-      return [];
+      if (!response.ok) return null;
+      return (await response.json()) as unknown;
     } catch {
-      return [];
+      return null;
     }
+  }
+
+  private extractRows(payload: unknown): Array<Record<string, unknown>> {
+    if (Array.isArray(payload)) {
+      return payload.filter((row): row is Record<string, unknown> => this.isRecord(row));
+    }
+    if (!this.isRecord(payload)) return [];
+
+    const nested = ['results', 'items', 'data', 'whiskies']
+      .map((key) => payload[key])
+      .find((value): value is unknown[] => Array.isArray(value));
+    if (!nested) return [];
+    return nested.filter((row): row is Record<string, unknown> => this.isRecord(row));
+  }
+
+  private extractNextUrl(payload: Record<string, unknown>, currentUrl: string): string | null {
+    const next = payload.next;
+    if (typeof next !== 'string' || !next.trim()) return null;
+    if (/^https?:\/\//i.test(next)) return next;
+    try {
+      return new URL(next, currentUrl).toString();
+    } catch {
+      return null;
+    }
+  }
+
+  private parseWhiskyHunterRow(row: Record<string, unknown>) {
+    const brandName = this.extractBrandName(row);
+    if (!brandName) return null;
+
+    const fullName =
+      this.pickString(row, ['full_name']) ??
+      this.pickString(row, ['name', 'title', 'whisky_name', 'bottle_name', 'expression', 'product_name']);
+    const explicitLine = this.pickString(row, ['line', 'product_line', 'series', 'range', 'collection']);
+    const explicitVersion = this.pickString(row, ['version', 'age_statement', 'release', 'edition']);
+
+    const parts = this.splitLineAndVersion(brandName, fullName ?? explicitLine ?? 'Core Range', explicitLine, explicitVersion);
+    return {
+      brandName,
+      lineName: parts.lineName,
+      versionTag: parts.versionTag,
+      region: this.extractRegion(row),
+      bottleSize: this.extractBottleSize(row),
+      releaseYear: this.extractReleaseYear(row)
+    };
   }
 
   private extractBrandName(row: Record<string, unknown>) {
@@ -403,19 +435,73 @@ export class CatalogBrandSeedService implements OnApplicationBootstrap {
     return picked.replace(/\s+/g, ' ').trim().slice(0, 80) || null;
   }
 
-  private normalizeLineName(brandName: string, raw: string) {
+  private splitLineAndVersion(brandName: string, raw: string, explicitLine?: string | null, explicitVersion?: string | null) {
     const compact = raw.replace(/\s+/g, ' ').trim();
-    if (!compact) return null;
+    if (!compact) return { lineName: 'Core Range', versionTag: 'WhiskyHunter Sync' };
 
     const lowerBrand = brandName.toLowerCase();
-    let line = compact;
+    let rest = compact;
     if (compact.toLowerCase().startsWith(lowerBrand)) {
-      line = compact.slice(brandName.length).trim();
+      rest = compact.slice(brandName.length).trim();
     }
-    line = line.replace(/^[-:|/]+/, '').trim();
-    if (!line) return null;
-    if (line.length > 120) line = line.slice(0, 120);
-    return line;
+    rest = rest.replace(/^[-:|/]+/, '').trim();
+
+    let lineName = (explicitLine ?? '').replace(/\s+/g, ' ').trim();
+    let versionTag = (explicitVersion ?? '').replace(/\s+/g, ' ').trim();
+
+    if (!lineName) {
+      const markerMatch = rest.match(
+        /\b(\d{1,3}\s*(?:yo|yr|year|years)\b|\d{4}\b|\d{2,3}(?:\.\d+)?%\b|batch\b|edition\b|release\b|single cask\b|cask strength\b)/i
+      );
+      if (markerMatch && markerMatch.index && markerMatch.index > 0) {
+        lineName = rest.slice(0, markerMatch.index).trim();
+        if (!versionTag) versionTag = rest.slice(markerMatch.index).trim();
+      } else {
+        const segments = rest
+          .split(/\s[-–|:/]\s|,\s/)
+          .map((part) => part.trim())
+          .filter(Boolean);
+        if (segments.length > 1) {
+          lineName = segments[0];
+          if (!versionTag) versionTag = segments.slice(1).join(' ');
+        } else {
+          lineName = rest || 'Core Range';
+        }
+      }
+    }
+
+    if (!versionTag) {
+      versionTag = /core range/i.test(lineName) ? 'Core Release' : lineName;
+    }
+
+    return {
+      lineName: lineName.slice(0, 120),
+      versionTag: versionTag.slice(0, 120)
+    };
+  }
+
+  private extractReleaseYear(row: Record<string, unknown>) {
+    const direct = this.pickString(row, ['release_year', 'year', 'vintage']);
+    if (direct) {
+      const match = direct.match(/\b(19|20)\d{2}\b/);
+      if (match) return Number(match[0]);
+    }
+    const fullName = this.pickString(row, ['full_name', 'name']);
+    if (!fullName) return null;
+    const match = fullName.match(/\b(19|20)\d{2}\b/);
+    return match ? Number(match[0]) : null;
+  }
+
+  private extractBottleSize(row: Record<string, unknown>) {
+    const picked = this.pickString(row, ['bottle_size', 'bottle_size_ml', 'size', 'volume']);
+    if (!picked) return 700;
+    const normalized = picked.toLowerCase();
+    const literMatch = normalized.match(/(\d+(?:\.\d+)?)\s*l\b/);
+    if (literMatch) return Math.round(Number(literMatch[1]) * 1000);
+    const mlMatch = normalized.match(/(\d{3,4})\s*ml\b|^(\d{3,4})$/);
+    const parsed = mlMatch ? Number(mlMatch[1] ?? mlMatch[2]) : Number.NaN;
+    if (!Number.isFinite(parsed) || parsed < 100 || parsed > 4000) return 700;
+    return parsed;
   }
 
   private pickString(row: Record<string, unknown>, keys: string[]) {

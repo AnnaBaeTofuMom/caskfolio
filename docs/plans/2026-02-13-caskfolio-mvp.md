@@ -142,9 +142,11 @@
 - API now guarantees baseline catalog depth at startup:
   - brands are upserted to at least 100 known entries
   - product lines and baseline variants are also upserted
-  - major brands include expanded sub-line coverage (e.g., Macallan families)
+  - major brands include expanded sub-line coverage
   - boot sequence always performs idempotent sync upserts for known catalog entries (not only low-count backfill)
-  - WhiskyHunter API boot sync is applied additively for discovered line/variant names (`https://whiskyhunter.net/api/`)
+  - WhiskyHunter API boot sync is applied additively from `https://whiskyhunter.net/api/whiskies_data`
+    - parsing priority: `full_name` first (`name` fallback) to derive product line + version
+    - pagination `next` traversal is used when provided by the API
     - no delete/shrink step in sync flow
   - controlled by env `AUTO_SEED_BRANDS_ON_BOOT` (enabled by default)
 

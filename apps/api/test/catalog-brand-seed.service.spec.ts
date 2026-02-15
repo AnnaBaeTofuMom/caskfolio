@@ -70,18 +70,23 @@ describe('CatalogBrandSeedService', () => {
     expect(macallanLines).toContain('Rare Cask');
   });
 
-  it('syncs WhiskyHunter lines additively without deleting existing catalog', async () => {
+  it('syncs WhiskyHunter whiskies_data additively using full_name-first parsing', async () => {
     global.fetch = vi.fn().mockImplementation(async (url: string) => {
-      if (url.includes('/distilleries_info')) {
+      if (url.includes('/whiskies_data')) {
         return {
           ok: true,
-          json: async () => [{ distillery: 'The Macallan', region: 'Speyside' }]
-        } as never;
-      }
-      if (url.includes('/search')) {
-        return {
-          ok: true,
-          json: async () => [{ name: 'The Macallan Double Cask 12' }, { name: 'The Macallan Rare Cask' }]
+          json: async () => [
+            {
+              distillery: 'The Macallan',
+              region: 'Speyside',
+              full_name: 'The Macallan Double Cask 12 Years Old 40%'
+            },
+            {
+              distillery: 'The Macallan',
+              region: 'Speyside',
+              full_name: 'The Macallan Rare Cask 2023 Release 43%'
+            }
+          ]
         } as never;
       }
       return { ok: true, json: async () => [] } as never;
@@ -93,11 +98,11 @@ describe('CatalogBrandSeedService', () => {
         upsert: vi.fn().mockResolvedValue({ id: 'b-mac' })
       },
       product: {
-        count: vi.fn().mockResolvedValueOnce(200).mockResolvedValueOnce(210),
+        count: vi.fn().mockResolvedValueOnce(200).mockResolvedValueOnce(202),
         upsert: vi.fn().mockResolvedValue({ id: 'p-mac' })
       },
       variant: {
-        count: vi.fn().mockResolvedValueOnce(200).mockResolvedValueOnce(220),
+        count: vi.fn().mockResolvedValueOnce(200).mockResolvedValueOnce(202),
         findFirst: vi.fn().mockResolvedValue(null),
         create: vi.fn().mockResolvedValue({ id: 'v-mac' }),
         deleteMany: vi.fn()
@@ -111,8 +116,15 @@ describe('CatalogBrandSeedService', () => {
       .map((call: any[]) => call[0]?.where?.brandId_name?.name)
       .filter((name: string | undefined) => typeof name === 'string');
 
-    expect(lineNames.some((name: string) => name.includes('Double Cask'))).toBe(true);
-    expect(lineNames.some((name: string) => name.includes('Rare Cask'))).toBe(true);
+    expect(lineNames).toContain('Double Cask');
+    expect(lineNames).toContain('Rare Cask');
+    expect(prisma.variant.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          specialTag: expect.stringContaining('12 Years Old 40%')
+        })
+      })
+    );
     expect(prisma.variant.deleteMany).not.toHaveBeenCalled();
   });
 
