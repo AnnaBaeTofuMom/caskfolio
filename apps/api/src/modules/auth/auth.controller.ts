@@ -3,10 +3,18 @@ import { AuthService } from './auth.service.js';
 import { OauthService } from './oauth.service.js';
 import { RateLimit } from '../../security/rate-limit.decorator.js';
 import { RateLimitGuard } from '../../security/rate-limit.guard.js';
+import { IsEmail, IsString, MinLength } from 'class-validator';
 
 class SignupDto {
+  @IsEmail()
   email!: string;
+
+  @IsString()
+  @MinLength(6)
   password!: string;
+
+  @IsString()
+  @MinLength(1)
   name!: string;
 }
 
