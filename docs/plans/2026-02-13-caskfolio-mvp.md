@@ -147,6 +147,7 @@
   - WhiskyHunter API boot sync is applied additively from `https://whiskyhunter.net/api/whiskies_data`
     - parsing priority: `full_name` first (`name` fallback) to derive product line + version
     - pagination `next` traversal is used when provided by the API
+    - known alias brands are normalized to canonical names in sync (e.g., `Macallan` -> `The Macallan`)
     - no delete/shrink step in sync flow
   - controlled by env `AUTO_SEED_BRANDS_ON_BOOT` (enabled by default)
 

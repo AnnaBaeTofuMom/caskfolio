@@ -5,6 +5,9 @@ const MIN_BRAND_COUNT = 100;
 const MIN_PRODUCT_COUNT = 120;
 const MIN_VARIANT_COUNT = 120;
 const WHISKYHUNTER_API_BASE = 'https://whiskyhunter.net/api';
+const BRAND_ALIAS_TO_CANONICAL: Record<string, string> = {
+  macallan: 'The Macallan'
+};
 
 const CATALOG_BRANDS: string[] = [
   'The Macallan',
@@ -221,6 +224,8 @@ export class CatalogBrandSeedService implements OnApplicationBootstrap {
       });
     }
 
+    await this.reconcileKnownBrandAliases();
+
     for (const entry of CATALOG_ENTRIES) {
       const brand = await this.prisma.brand.upsert({
         where: { name: entry.brand },
@@ -426,7 +431,8 @@ export class CatalogBrandSeedService implements OnApplicationBootstrap {
     if (!picked) return null;
     const normalized = picked.replace(/\s+/g, ' ').trim();
     if (!normalized || normalized.length < 2) return null;
-    return normalized.slice(0, 120);
+    const canonical = BRAND_ALIAS_TO_CANONICAL[normalized.toLowerCase()] ?? normalized;
+    return canonical.slice(0, 120);
   }
 
   private extractRegion(row: Record<string, unknown>) {
@@ -514,5 +520,78 @@ export class CatalogBrandSeedService implements OnApplicationBootstrap {
 
   private isRecord(value: unknown): value is Record<string, unknown> {
     return typeof value === 'object' && value !== null;
+  }
+
+  private async reconcileKnownBrandAliases() {
+    if (
+      typeof (this.prisma.brand as { findUnique?: unknown }).findUnique !== 'function' ||
+      typeof (this.prisma.product as { findMany?: unknown }).findMany !== 'function' ||
+      typeof (this.prisma.variant as { findMany?: unknown }).findMany !== 'function'
+    ) {
+      return;
+    }
+
+    const pairs = Object.entries(BRAND_ALIAS_TO_CANONICAL).filter(([alias, canonical]) => alias !== canonical.toLowerCase());
+
+    for (const [aliasLower, canonicalName] of pairs) {
+      const aliasName = this.findAliasName(aliasLower);
+      if (!aliasName || aliasName === canonicalName) continue;
+
+      const aliasBrand = await this.prisma.brand.findUnique({ where: { name: aliasName } });
+      if (!aliasBrand) continue;
+
+      const canonicalBrand = await this.prisma.brand.upsert({
+        where: { name: canonicalName },
+        create: { name: canonicalName },
+        update: {}
+      });
+
+      if (aliasBrand.id === canonicalBrand.id) continue;
+
+      const aliasProducts = await this.prisma.product.findMany({ where: { brandId: aliasBrand.id } });
+      for (const sourceProduct of aliasProducts) {
+        const targetProduct = await this.prisma.product.upsert({
+          where: { brandId_name: { brandId: canonicalBrand.id, name: sourceProduct.name } },
+          create: { brandId: canonicalBrand.id, name: sourceProduct.name },
+          update: {}
+        });
+
+        const sourceVariants = await this.prisma.variant.findMany({ where: { productId: sourceProduct.id } });
+        for (const sourceVariant of sourceVariants) {
+          const duplicate = await this.prisma.variant.findFirst({
+            where: {
+              productId: targetProduct.id,
+              releaseYear: sourceVariant.releaseYear,
+              bottleSize: sourceVariant.bottleSize,
+              region: sourceVariant.region,
+              specialTag: sourceVariant.specialTag
+            }
+          });
+          if (duplicate) continue;
+
+          await this.prisma.variant.update({
+            where: { id: sourceVariant.id },
+            data: { productId: targetProduct.id }
+          });
+        }
+
+        if (typeof (this.prisma.product as { delete?: unknown }).delete === 'function') {
+          await this.prisma.product.delete({ where: { id: sourceProduct.id } }).catch(() => undefined);
+        }
+      }
+
+      if (typeof (this.prisma.brand as { delete?: unknown }).delete === 'function') {
+        await this.prisma.brand.delete({ where: { id: aliasBrand.id } }).catch(() => undefined);
+      }
+    }
+  }
+
+  private findAliasName(aliasLower: string) {
+    const catalogMatch = CATALOG_BRANDS.find((name) => name.toLowerCase() === aliasLower);
+    if (catalogMatch) return catalogMatch;
+    return aliasLower
+      .split(' ')
+      .map((token) => token.charAt(0).toUpperCase() + token.slice(1))
+      .join(' ');
   }
 }

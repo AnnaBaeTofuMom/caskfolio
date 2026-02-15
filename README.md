@@ -113,6 +113,7 @@ pnpm dev
     - On boot, service pulls from `https://whiskyhunter.net/api/whiskies_data` and upserts discovered rows additively.
     - Parsing priority is `full_name` first (fallback to `name`) for line/version extraction.
     - Pagination with `next` is followed until exhaustion to maximize product coverage.
+    - Known aliases are normalized to canonical brand names during sync (e.g., `Macallan` -> `The Macallan`).
     - Sync is additive-only (no delete/shrink path). Existing catalog rows are never removed by sync.
     - Controlled by `WHISKYHUNTER_SYNC_ON_BOOT` (default enabled).
   - User-facing catalog search (`/api/catalog/brands|products|variants`) uses normalized contains matching

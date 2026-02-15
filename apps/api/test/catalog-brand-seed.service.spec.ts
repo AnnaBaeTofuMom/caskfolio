@@ -128,6 +128,57 @@ describe('CatalogBrandSeedService', () => {
     expect(prisma.variant.deleteMany).not.toHaveBeenCalled();
   });
 
+  it('normalizes known brand aliases to canonical names during WhiskyHunter sync', async () => {
+    global.fetch = vi.fn().mockImplementation(async (url: string) => {
+      if (url.includes('/whiskies_data')) {
+        return {
+          ok: true,
+          json: async () => [
+            {
+              distillery: 'Macallan',
+              region: 'Speyside',
+              full_name: 'Macallan Double Cask 12 Years Old 40%'
+            }
+          ]
+        } as never;
+      }
+      return { ok: true, json: async () => [] } as never;
+    });
+
+    const prisma: any = {
+      brand: {
+        count: vi.fn().mockResolvedValueOnce(120).mockResolvedValueOnce(120),
+        findUnique: vi.fn().mockResolvedValue(null),
+        findMany: vi.fn().mockResolvedValue([]),
+        delete: vi.fn(),
+        upsert: vi.fn().mockResolvedValue({ id: 'b-mac' })
+      },
+      product: {
+        count: vi.fn().mockResolvedValueOnce(200).mockResolvedValueOnce(201),
+        findMany: vi.fn().mockResolvedValue([]),
+        upsert: vi.fn().mockResolvedValue({ id: 'p-mac' }),
+        delete: vi.fn()
+      },
+      variant: {
+        count: vi.fn().mockResolvedValueOnce(200).mockResolvedValueOnce(201),
+        findFirst: vi.fn().mockResolvedValue(null),
+        findMany: vi.fn().mockResolvedValue([]),
+        create: vi.fn().mockResolvedValue({ id: 'v-mac' }),
+        update: vi.fn()
+      }
+    };
+
+    const service = new CatalogBrandSeedService(prisma);
+    await service.onApplicationBootstrap();
+
+    const brandWhereNames = prisma.brand.upsert.mock.calls
+      .map((call: any[]) => call[0]?.where?.name)
+      .filter((name: unknown) => typeof name === 'string');
+
+    expect(brandWhereNames).toContain('The Macallan');
+    expect(brandWhereNames).not.toContain('Macallan');
+  });
+
   it('skips seeding when feature flag is disabled', async () => {
     const prisma: any = {
       brand: { count: vi.fn(), upsert: vi.fn() },
