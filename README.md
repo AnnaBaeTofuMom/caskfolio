@@ -111,6 +111,7 @@ pnpm dev
   - Users can write feed posts even when they have no existing assets.
   - If user has zero assets, `Widget=ASSET` is disabled.
   - `Widget=NONE` / `Widget=POLL` remain available.
+  - If `Widget=ASSET` is selected, feed post payload now keeps selected asset name as the feed card title source (instead of overriding with free-text post title).
 
 ## Feed/Asset Separation Update (2026-02-15)
 - Registered assets and feed posts are now explicitly separated by `WhiskyAsset.isFeedPost`.
@@ -119,6 +120,7 @@ pnpm dev
 - Feed timeline only queries feed-post records (plus legacy fallback condition for old posts).
 - Public collection/profile and portfolio ranking exclude feed-post records from asset valuation context.
 - Portfolio dashboard summary/chart and share-link fallback selection now also exclude `isFeedPost=true` rows.
+- Feed card asset widget now renders selected whisky name and product line above price metrics.
 - Soft delete behavior:
   - `DELETE /api/assets/:id` now performs soft delete (`WhiskyAsset.deletedAt` set, visibility forced to `PRIVATE`).
   - Works for both collection assets and feed-post rows from the My Assets UI.

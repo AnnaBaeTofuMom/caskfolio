@@ -222,6 +222,13 @@ export function FeedCardItem({ card }: { card: FeedCard }) {
 
           {showAssetWidget ? (
             <article className="card asset-widget-card">
+              <div style={{ marginBottom: 10 }}>
+                <p className="sub" style={{ marginBottom: 4 }}>
+                  Asset Widget
+                </p>
+                <strong>{card.title || 'Unknown Whisky'}</strong>
+                {card.productLine ? <p className="sub" style={{ marginTop: 4, marginBottom: 0 }}>{card.productLine}</p> : null}
+              </div>
               <div className="feed-metrics asset-widget-metrics">
                 <article className="metric">
                   <p>Current</p>
