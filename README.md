@@ -111,7 +111,6 @@ pnpm dev
   - Users can write feed posts even when they have no existing assets.
   - If user has zero assets, `Widget=ASSET` is disabled.
   - `Widget=NONE` / `Widget=POLL` remain available.
-  - If `Widget=ASSET` is selected, feed post payload now keeps selected asset name as the feed card title source (instead of overriding with free-text post title).
 
 ## Feed/Asset Separation Update (2026-02-15)
 - Registered assets and feed posts are now explicitly separated by `WhiskyAsset.isFeedPost`.

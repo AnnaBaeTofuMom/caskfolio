@@ -27,18 +27,6 @@ export function isAssetWidgetSelectable(assetCount: number): boolean {
   return assetCount > 0;
 }
 
-export function resolvePostAssetName(
-  widgetType: 'NONE' | 'ASSET' | 'POLL',
-  title: string,
-  selectedAsset: Pick<MyAsset, 'customProductName' | 'displayName'> | null
-) {
-  const trimmedTitle = title.trim();
-  if (widgetType === 'ASSET') {
-    return selectedAsset?.customProductName || selectedAsset?.displayName || trimmedTitle;
-  }
-  return trimmedTitle;
-}
-
 export function FeedPostForm() {
   const router = useRouter();
   const [isAuthenticated, setIsAuthenticated] = useState(false);
@@ -127,7 +115,7 @@ export function FeedPostForm() {
         },
         body: JSON.stringify({
           variantId: selectedAsset?.variantId || undefined,
-          customProductName: resolvePostAssetName(widgetType, title, selectedAsset),
+          customProductName: title.trim() || selectedAsset?.customProductName || selectedAsset?.displayName,
           purchasePrice: widgetType === 'ASSET' ? (selectedAsset?.purchasePrice ?? 0) : 0,
           purchaseDate:
             widgetType === 'ASSET' && selectedAsset?.purchaseDate
