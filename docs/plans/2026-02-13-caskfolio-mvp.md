@@ -128,3 +128,23 @@
    - recreate OAuth client in Google Cloud Console
    - update `GOOGLE_CLIENT_ID` and `GOOGLE_CLIENT_SECRET`
    - rebuild/restart `api`, `web`, `caddy` containers
+
+## Post-implementation production updates (2026-02-15)
+
+### Auth and routing stability updates
+- `/login` route is a redirect endpoint to `/auth/login` for consistent chunk/hydration pathing.
+- Signup endpoint was hardened:
+  - DTO validation for required fields (`email`, `password`, `name`)
+  - service-level guard for missing fields before `findUnique` query
+  - expected bad-request behavior: `400` on malformed payload
+
+### Catalog seed reliability updates
+- API now guarantees baseline brand catalog at startup:
+  - if brand count < 100, known brand list is upserted automatically
+  - controlled by env `AUTO_SEED_BRANDS_ON_BOOT` (enabled by default)
+
+### Feed composer behavior update
+- Feed post creation no longer requires pre-existing assets.
+- UX rule:
+  - when asset count is zero, `Widget=ASSET` is disabled
+  - `Widget=NONE` and `Widget=POLL` are still available

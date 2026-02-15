@@ -22,6 +22,10 @@ type MyAsset = {
   visibility: 'PUBLIC' | 'PRIVATE';
 };
 
+export function isAssetWidgetSelectable(assetCount: number): boolean {
+  return assetCount > 0;
+}
+
 export function FeedPostForm() {
   const router = useRouter();
   const [isAuthenticated, setIsAuthenticated] = useState(false);
@@ -41,6 +45,7 @@ export function FeedPostForm() {
   const [submitting, setSubmitting] = useState(false);
 
   const selectedAsset = useMemo(() => assets.find((asset) => asset.id === assetId) ?? null, [assetId, assets]);
+  const canSelectAssetWidget = isAssetWidgetSelectable(assets.length);
 
   useEffect(() => {
     const auth = readAuthContext(window.localStorage);
@@ -213,17 +218,6 @@ export function FeedPostForm() {
     return <article className="card">로그인이 필요합니다.</article>;
   }
 
-  if (!assets.length) {
-    return (
-      <article className="card">
-        <p className="sub">게시할 자산이 없습니다. 먼저 자산을 등록해주세요.</p>
-        <Link className="btn primary" href="/assets/register">
-          Register Asset
-        </Link>
-      </article>
-    );
-  }
-
   return (
     <form className="card form-grid" onSubmit={onSubmit}>
       <label>
@@ -278,10 +272,18 @@ export function FeedPostForm() {
         Widget (optional)
         <select value={widgetType} onChange={(e) => setWidgetType(e.target.value as 'NONE' | 'ASSET' | 'POLL')}>
           <option value="NONE">None</option>
-          <option value="ASSET">Asset widget</option>
+          <option value="ASSET" disabled={!canSelectAssetWidget}>
+            Asset widget
+          </option>
           <option value="POLL">Poll widget</option>
         </select>
       </label>
+      {!canSelectAssetWidget ? (
+        <p className="sub">
+          등록된 자산이 없어 Asset widget은 사용할 수 없습니다. 일반 포스트(None/Poll)는 바로 작성할 수 있습니다.{' '}
+          <Link href="/assets/register">자산 등록</Link>
+        </p>
+      ) : null}
 
       {widgetType === 'ASSET' ? (
         <>

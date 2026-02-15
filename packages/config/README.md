@@ -8,3 +8,9 @@ Shared lint, tsconfig, and environment schemas live here.
   - `GOOGLE_CLIENT_ID`
   - `GOOGLE_CLIENT_SECRET`
 - OAuth redirect URI in use: `https://caskfolio.club/auth/login`.
+
+## Runtime additions (2026-02-15)
+- Catalog brand bootstrap toggle:
+  - `AUTO_SEED_BRANDS_ON_BOOT=true|false`
+  - Default is enabled (`true` when unset).
+  - On API boot, if brand count is below 100, catalog brand seed list is upserted.

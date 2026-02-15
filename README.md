@@ -94,3 +94,18 @@ pnpm dev
 - OAuth redirect URI in active flow is `https://caskfolio.club/auth/login`.
 - If Google shows `Error 401: deleted_client`, the OAuth client in Google Cloud has been deleted.
   - Action: create a new OAuth client and update `GOOGLE_CLIENT_ID` and `GOOGLE_CLIENT_SECRET` in production env.
+
+## Production sync updates (2026-02-15)
+- Login route behavior:
+  - `/login` now immediately redirects to `/auth/login`.
+- Signup hardening:
+  - DTO validation is enforced for `email`, `password`, `name`.
+  - API-level guard blocks malformed signup requests before Prisma lookup.
+  - Invalid payloads return `400` instead of causing `500` with `email: undefined`.
+- Catalog bootstrap:
+  - API auto-seeds catalog brands on boot when brand count is below 100.
+  - Controlled by `AUTO_SEED_BRANDS_ON_BOOT` (default enabled).
+- Feed post creation UX:
+  - Users can write feed posts even when they have no existing assets.
+  - If user has zero assets, `Widget=ASSET` is disabled.
+  - `Widget=NONE` / `Widget=POLL` remain available.

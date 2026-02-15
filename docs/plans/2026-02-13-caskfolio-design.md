@@ -80,3 +80,15 @@ Weight dimensions:
 - OAuth return path currently targets `/auth/login` in production domain.
 - Production dependency:
   - Active Google OAuth client must exist and match configured `GOOGLE_CLIENT_ID`.
+
+## Implementation Sync Addendum (2026-02-15)
+- Route normalization:
+  - `/login` is now a redirect-only entry that forwards to `/auth/login`.
+- Signup robustness:
+  - signup request DTO fields are strictly validated (`email`, `password`, `name`).
+  - malformed signup payloads are rejected with `400`, preventing Prisma validation crashes.
+- Catalog availability:
+  - API bootstraps brand catalog to at least 100 entries (upsert-based) when data is missing.
+- Feed composer rule:
+  - posting is allowed even with zero existing assets.
+  - in zero-asset state, `Asset widget` is disabled while `None/Poll` remain available.

@@ -131,3 +131,10 @@
   - OAuth provider error page case (`401 deleted_client`) with retry/help text guidance.
 - Implementation alignment note:
   - Web app API default base path is `/api` in production/client fallback logic.
+
+## 11. Feed Composer Update (2026-02-15)
+- Users can publish a feed post even when they have zero registered assets.
+- In that state:
+  - `Asset widget` option must be visibly disabled.
+  - `None` and `Poll` widget options stay selectable.
+  - Optional helper copy should guide users to asset registration without blocking post creation.
