@@ -10,6 +10,7 @@ import { CrawlerModule } from './modules/crawler/crawler.module.js';
 import { AdminModule } from './modules/admin/admin.module.js';
 import { CatalogModule } from './modules/catalog/catalog.module.js';
 import { PrismaModule } from './prisma/prisma.module.js';
+import { CatalogBrandSeedService } from './bootstrap/catalog-brand-seed.service.js';
 
 @Module({
   imports: [
@@ -24,6 +25,7 @@ import { PrismaModule } from './prisma/prisma.module.js';
     PricingModule,
     CrawlerModule,
     AdminModule
-  ]
+  ],
+  providers: [CatalogBrandSeedService]
 })
 export class AppModule {}
