@@ -1,10 +1,10 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger, OnApplicationBootstrap } from '@nestjs/common';
 import { Cron, CronExpression } from '@nestjs/schedule';
 import { PrismaService } from '../../prisma/prisma.service.js';
 import { PriceAggregateService } from '../pricing/price-aggregate.service.js';
 
 @Injectable()
-export class CrawlerService {
+export class CrawlerService implements OnApplicationBootstrap {
   private readonly logger = new Logger(CrawlerService.name);
   private static readonly KST_OFFSET_HOURS = 9;
   private static readonly KST_DAY_MS = 24 * 60 * 60 * 1000;
@@ -13,6 +13,17 @@ export class CrawlerService {
     private readonly prisma: PrismaService,
     private readonly priceAggregateService: PriceAggregateService
   ) {}
+
+  async onApplicationBootstrap() {
+    const runOnBoot = (process.env.CRAWLER_RUN_ON_BOOT ?? 'true').toLowerCase() !== 'false';
+    if (!runOnBoot) return;
+
+    setTimeout(() => {
+      void this.crawlDailyTop100().catch((error: unknown) => {
+        this.logger.error(`Boot crawl failed: ${String(error)}`);
+      });
+    }, 5000);
+  }
 
   @Cron(CronExpression.EVERY_DAY_AT_9AM, { timeZone: 'Asia/Seoul' })
   async crawlDailyTop100(manualVariantIds?: string[]) {
@@ -26,18 +37,14 @@ export class CrawlerService {
       if (!variantId) continue;
 
       const assets = await this.prisma.whiskyAsset.findMany({
-        where: { variantId },
+        where: { variantId, deletedAt: null },
         select: { purchasePrice: true, purchaseDate: true }
       });
-
-      if (!assets.length) continue;
 
       const sorted = assets
         .map((a: (typeof assets)[number]) => Number(a.purchasePrice))
         .filter((v: number) => Number.isFinite(v) && v > 0)
         .sort((a: number, b: number) => a - b);
-
-      if (!sorted.length) continue;
 
       const variant = await this.prisma.variant.findUnique({
         where: { id: variantId },
@@ -52,9 +59,11 @@ export class CrawlerService {
           : variantId;
 
       const externalRange = await this.fetchExternalRange(variantId, query);
-      const mid = sorted[Math.floor(sorted.length / 2)];
-      const simulatedLow = Math.round(mid * 0.95);
-      const simulatedHigh = Math.round(mid * 1.12);
+      if (!externalRange && !sorted.length) continue;
+
+      const mid = sorted.length ? sorted[Math.floor(sorted.length / 2)] : 0;
+      const simulatedLow = mid > 0 ? Math.round(mid * 0.95) : 0;
+      const simulatedHigh = mid > 0 ? Math.round(mid * 1.12) : 0;
       const lowestPrice = externalRange?.lowestPrice ?? simulatedLow;
       const highestPrice = externalRange?.highestPrice ?? simulatedHigh;
       const source = externalRange?.source ?? 'simulated-fallback';
@@ -229,14 +238,22 @@ export class CrawlerService {
 
     const topVariants = await this.prisma.whiskyAsset.groupBy({
       by: ['variantId'],
-      where: { variantId: { not: null } },
+      where: { variantId: { not: null }, deletedAt: null },
       _count: { variantId: true },
       orderBy: { _count: { variantId: 'desc' } },
       take: 100
     });
-    return topVariants
+    const grouped = topVariants
       .map((row: (typeof topVariants)[number]) => row.variantId)
       .filter((value: string | null): value is string => Boolean(value));
+
+    if (grouped.length) return grouped;
+
+    const catalogVariants = await this.prisma.variant.findMany({
+      select: { id: true },
+      take: 100
+    });
+    return catalogVariants.map((variant: (typeof catalogVariants)[number]) => variant.id);
   }
 
   private sleep(ms: number) {

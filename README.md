@@ -105,8 +105,13 @@ pnpm dev
   - API-level guard blocks malformed signup requests before Prisma lookup.
   - Invalid payloads return `400` instead of causing `500` with `email: undefined`.
 - Catalog bootstrap:
-  - API auto-seeds catalog brands on boot when brand count is below 100.
+  - API auto-seeds catalog depth on boot: brands + product lines + baseline variants.
+  - Includes expanded major brand sub-lines (e.g., Macallan line families) so Product Line/Version selectors are populated.
   - Controlled by `AUTO_SEED_BRANDS_ON_BOOT` (default enabled).
+- Crawler bootstrap/scheduling:
+  - Daily scheduled crawl remains `09:00 KST`.
+  - On app boot, crawler also runs one immediate pass by default (`CRAWLER_RUN_ON_BOOT=true`).
+  - If no owned-asset variants exist yet, crawler falls back to catalog variants for target selection.
 - Feed post creation UX:
   - Users can write feed posts even when they have no existing assets.
   - If user has zero assets, `Widget=ASSET` is disabled.

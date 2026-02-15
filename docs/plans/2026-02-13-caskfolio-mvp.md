@@ -139,9 +139,20 @@
   - expected bad-request behavior: `400` on malformed payload
 
 ### Catalog seed reliability updates
-- API now guarantees baseline brand catalog at startup:
-  - if brand count < 100, known brand list is upserted automatically
+- API now guarantees baseline catalog depth at startup:
+  - brands are upserted to at least 100 known entries
+  - product lines and baseline variants are also upserted
+  - major brands include expanded sub-line coverage (e.g., Macallan families)
   - controlled by env `AUTO_SEED_BRANDS_ON_BOOT` (enabled by default)
+
+### Crawler runtime reliability updates
+- Scheduled crawl still runs daily at `09:00 KST`.
+- Boot-time catch-up pass added:
+  - one immediate crawl runs after API startup (default enabled)
+  - controlled by env `CRAWLER_RUN_ON_BOOT` (`true` by default)
+- Target variant resolution fallback:
+  - primary: top variants inferred from owned assets
+  - fallback: catalog variants when owned-asset variants are not yet populated
 
 ### Feed composer behavior update
 - Feed post creation no longer requires pre-existing assets.
