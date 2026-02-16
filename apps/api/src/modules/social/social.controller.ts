@@ -38,6 +38,7 @@ export class SocialController {
       photoUrl?: string;
       photoUrls?: string[];
       visibility?: 'PUBLIC' | 'PRIVATE';
+      poll?: { question?: string; options?: string[] };
     }
   ) {
     if (!userEmail) throw new UnauthorizedException('Missing user context');
@@ -48,7 +49,8 @@ export class SocialController {
       variantId: body.variantId,
       photoUrl: body.photoUrl,
       photoUrls: body.photoUrls,
-      visibility: body.visibility
+      visibility: body.visibility,
+      poll: body.poll
     });
   }
 

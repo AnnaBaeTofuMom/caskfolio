@@ -100,3 +100,4 @@ Weight dimensions:
   - collection assets and feed posts are physically separated (`WhiskyAsset` vs `FeedPost`).
   - registering an asset never auto-publishes because feed reads only `FeedPost`.
   - `Widget=ASSET` is the only connection point via `FeedPost.linkedAssetId`.
+  - poll widget persistence is coupled to feed-post creation in a single transactional request to avoid partial-write failures.

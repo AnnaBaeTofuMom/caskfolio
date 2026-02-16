@@ -33,6 +33,7 @@ export default function PortfolioPage() {
   const [currentEmail, setCurrentEmail] = useState('');
   const [loading, setLoading] = useState(true);
   const [summary, setSummary] = useState<Summary | null>(null);
+  const [assetCountFromList, setAssetCountFromList] = useState<number | null>(null);
   const [chart, setChart] = useState<ChartPoint[]>([]);
   const [loadFailed, setLoadFailed] = useState(false);
   const [notifications, setNotifications] = useState<NotificationItem[]>([]);
@@ -69,19 +70,24 @@ export default function PortfolioPage() {
       }),
       fetch(`${API_BASE}/social/notifications`, {
         headers: { 'x-user-email': userEmail }
+      }),
+      fetch(`${API_BASE}/assets/me`, {
+        headers: { 'x-user-email': userEmail }
       })
     ])
-      .then(async ([summaryRes, chartRes, notificationsRes]) => {
-        if (!summaryRes.ok || !chartRes.ok || !notificationsRes.ok) {
+      .then(async ([summaryRes, chartRes, notificationsRes, assetsRes]) => {
+        if (!summaryRes.ok || !chartRes.ok || !notificationsRes.ok || !assetsRes.ok) {
           setLoadFailed(true);
           return;
         }
         const summaryData = (await summaryRes.json()) as Summary;
         const chartData = (await chartRes.json()) as ChartPoint[];
         const notificationsData = (await notificationsRes.json()) as NotificationItem[];
+        const assetsData = (await assetsRes.json()) as Array<{ id: string }>;
         setSummary(summaryData);
         setChart(chartData);
         setNotifications(notificationsData);
+        setAssetCountFromList(assetsData.length);
       })
       .catch(() => setLoadFailed(true))
       .finally(() => setLoading(false));
@@ -154,7 +160,7 @@ export default function PortfolioPage() {
           ? `${summary.unrealizedPnL >= 0 ? '+' : ''}${((summary.unrealizedPnL / summary.totalPurchaseValue) * 100).toFixed(1)}%`
           : '0.0%'
     },
-    { label: 'Asset Count', value: summary.assetCount.toLocaleString() }
+    { label: 'Asset Count', value: (assetCountFromList ?? summary.assetCount).toLocaleString() }
   ];
 
   return (

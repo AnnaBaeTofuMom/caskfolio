@@ -134,6 +134,11 @@ pnpm dev
 - Feed timeline only queries `FeedPost`.
 - Portfolio summary/chart/share selection only query `WhiskyAsset`.
 - `Widget=ASSET` links a feed post to an owned asset by `FeedPost.linkedAssetId` (optional connection, not same entity).
+- Feed reliability fixes:
+  - authenticated feed query now includes the user's own posts even when visibility is `PRIVATE` (owner-only view).
+  - poll widget creation is now handled in the initial `POST /api/social/feed` transaction (`poll.question/options`), removing two-step race/failure paths.
+- Portfolio dashboard consistency:
+  - UI `Asset Count` now derives from `/api/assets/me` length to match the visible My Assets list exactly.
 - Feed card asset widget now renders selected whisky name and product line above price metrics.
 - Soft delete behavior:
   - `DELETE /api/assets/:id` soft-deletes owned assets (`WhiskyAsset.deletedAt`).

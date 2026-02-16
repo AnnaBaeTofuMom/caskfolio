@@ -163,7 +163,7 @@ describe('SocialService', () => {
     expect(result.items[0]!.isOwnAsset).toBe(false);
   });
 
-  it('queries feed with post-only filter to separate registered assets', async () => {
+  it('queries feed with public visibility filter for anonymous users', async () => {
     const prisma: any = {
       user: {
         findUnique: vi.fn().mockResolvedValue({ id: 'u-me', email: 'me@caskfolio.com', username: 'me', name: 'Me' })
@@ -179,11 +179,69 @@ describe('SocialService', () => {
     const feedService = { mix: vi.fn().mockReturnValue({ items: [] }) } as never;
     const service = new SocialService(prisma, feedService);
 
-    await service.feed('me@caskfolio.com');
+    await service.feed(undefined);
 
     const query = prisma.feedPost.findMany.mock.calls[0]?.[0];
     expect(query?.where?.visibility).toBe('PUBLIC');
     expect(query?.where?.deletedAt).toBeNull();
     expect(query?.where?.OR).toBeUndefined();
+  });
+
+  it('includes own private posts in feed when authenticated', async () => {
+    const prisma: any = {
+      user: {
+        findUnique: vi.fn().mockResolvedValue({ id: 'u-me', email: 'me@caskfolio.com', username: 'me', name: 'Me' })
+      },
+      follow: {
+        findMany: vi.fn().mockResolvedValue([])
+      },
+      feedPost: {
+        findMany: vi.fn().mockResolvedValue([])
+      }
+    };
+
+    const service = new SocialService(prisma, { mix: vi.fn() } as never);
+    await service.feed('me@caskfolio.com');
+
+    const query = prisma.feedPost.findMany.mock.calls[0]?.[0];
+    expect(Array.isArray(query?.where?.OR)).toBe(true);
+  });
+
+  it('creates poll together with feed post when poll payload is provided', async () => {
+    const tx = {
+      feedPost: {
+        create: vi.fn().mockResolvedValue({ id: 'post-1' })
+      },
+      feedPoll: {
+        create: vi.fn().mockResolvedValue({ id: 'poll-1' })
+      }
+    };
+
+    const prisma: any = {
+      user: {
+        findUnique: vi.fn().mockResolvedValue({ id: 'u-me', email: 'me@caskfolio.com', username: 'me', name: 'Me' })
+      },
+      whiskyAsset: {
+        findFirst: vi.fn().mockResolvedValue(null)
+      },
+      notification: {
+        createMany: vi.fn()
+      },
+      $transaction: vi.fn(async (callback: (innerTx: typeof tx) => Promise<any>) => callback(tx))
+    };
+
+    const service = new SocialService(prisma, { mix: vi.fn() } as never);
+    const result = await service.createFeedPost('me@caskfolio.com', {
+      title: 'post',
+      body: 'body',
+      visibility: 'PUBLIC',
+      poll: { question: 'Q?', options: ['A', 'B'] }
+    });
+
+    expect(result.id).toBe('post-1');
+    expect(tx.feedPost.create).toHaveBeenCalledTimes(1);
+    expect(tx.feedPoll.create).toHaveBeenCalledWith({
+      data: { assetId: 'post-1', question: 'Q?', options: ['A', 'B'] }
+    });
   });
 });

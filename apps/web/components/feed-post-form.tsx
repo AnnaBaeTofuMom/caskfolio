@@ -119,7 +119,14 @@ export function FeedPostForm() {
           variantId: selectedAsset?.variantId || undefined,
           photoUrl: finalPhotoUrls[0] ?? undefined,
           photoUrls: finalPhotoUrls.length ? finalPhotoUrls : undefined,
-          visibility: 'PUBLIC'
+          visibility: 'PUBLIC',
+          poll:
+            widgetType === 'POLL'
+              ? {
+                  question: pollQuestion,
+                  options: pollOptions
+                }
+              : undefined
         })
       });
 
@@ -128,32 +135,10 @@ export function FeedPostForm() {
         return;
       }
 
-      const created = (await response.json()) as { id?: string };
-      const createdPostId = created.id;
-
       if (widgetType === 'POLL') {
         const options = pollOptions.map((option) => option.trim()).filter(Boolean);
         if (!pollQuestion.trim() || options.length < 2) {
           setStatus('Poll 위젯은 질문과 2개 이상 보기 항목이 필요합니다.');
-          return;
-        }
-        if (!createdPostId) {
-          setStatus('Poll 대상 글 ID를 찾을 수 없습니다.');
-          return;
-        }
-        const pollResponse = await fetch(`${API_BASE}/social/feed/${createdPostId}/poll`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'x-user-email': userEmail
-          },
-          body: JSON.stringify({
-            question: pollQuestion,
-            options
-          })
-        });
-        if (!pollResponse.ok) {
-          setStatus('Poll 저장 실패');
           return;
         }
       }

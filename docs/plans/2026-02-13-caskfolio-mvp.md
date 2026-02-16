@@ -187,3 +187,10 @@
 - Query boundaries:
   - portfolio/profile asset surfaces read only `WhiskyAsset`
   - feed timeline/interactions read only `FeedPost`
+- Feed posting/poll robustness:
+  - feed + poll is now created in one API transaction (`POST /api/social/feed` with optional `poll` payload).
+  - this removes the prior two-step flow where post creation succeeded but poll attach failed.
+- Feed visibility UX:
+  - authenticated users can see their own posts in feed even if post visibility is `PRIVATE`.
+- Dashboard count consistency:
+  - portfolio page displays asset count from `/api/assets/me` to align with My Assets list rendering.

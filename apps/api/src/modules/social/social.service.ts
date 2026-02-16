@@ -45,6 +45,7 @@ export class SocialService {
       photoUrl?: string;
       photoUrls?: string[];
       visibility?: 'PUBLIC' | 'PRIVATE';
+      poll?: { question?: string; options?: string[] };
     }
   ) {
     const me = await this.ensureUser(userEmail);
@@ -64,17 +65,38 @@ export class SocialService {
       variantId = linked.variantId ?? variantId;
     }
 
-    const created = await this.prisma.feedPost.create({
-      data: {
-        userId: me.id,
-        title,
-        body,
-        linkedAssetId,
-        variantId,
-        photoUrl: input.photoUrl,
-        photoUrls: input.photoUrls ?? (input.photoUrl ? [input.photoUrl] : []),
-        visibility: input.visibility ?? 'PUBLIC'
+    const pollQuestion = input.poll?.question?.trim() ?? '';
+    const pollOptions = (input.poll?.options ?? []).map((option) => option.trim()).filter(Boolean);
+    const includePoll = Boolean(input.poll);
+    if (includePoll && (!pollQuestion || pollOptions.length < 2)) {
+      throw new BadRequestException('poll question and at least 2 options are required');
+    }
+
+    const created = await this.prisma.$transaction(async (tx) => {
+      const post = await tx.feedPost.create({
+        data: {
+          userId: me.id,
+          title,
+          body,
+          linkedAssetId,
+          variantId,
+          photoUrl: input.photoUrl,
+          photoUrls: input.photoUrls ?? (input.photoUrl ? [input.photoUrl] : []),
+          visibility: input.visibility === 'PRIVATE' ? 'PRIVATE' : 'PUBLIC'
+        }
+      });
+
+      if (includePoll) {
+        await tx.feedPoll.create({
+          data: {
+            assetId: post.id,
+            question: pollQuestion,
+            options: pollOptions
+          }
+        });
       }
+
+      return post;
     });
 
     await this.createMentionNotifications(me.id, created.id, `${title}\n${body}`);
@@ -130,7 +152,11 @@ export class SocialService {
     const rawPosts = await this.prisma.feedPost.findMany({
       where: {
         deletedAt: null,
-        visibility: 'PUBLIC',
+        ...(me
+          ? {
+              OR: [{ visibility: 'PUBLIC' }, { userId: me.id }]
+            }
+          : { visibility: 'PUBLIC' }),
         ...(cursorFilter ?? {})
       },
       include: {
